@@ -25,7 +25,7 @@ b { font-weight: bold; }
 
 <h1>Vault Highlight & Spacing</h1>
 
-<textarea id="inputBox" placeholder="Enter number combinations"></textarea>
+<textarea id="inputBox" placeholder="Enter number combinations."></textarea>
 
 <div class="controls">
   <label for="styleOption">Highlight:</label>
@@ -70,8 +70,6 @@ function sanitizeLine(line){
 function buildOutput(lines, repetitionOption, style){
   const cleaned = lines.map(l=>sanitizeLine(l)).filter(l=>l.length>0);
   if(cleaned.length===0) return {htmlOut:'', plainOut:'', charCount:0};
-  const base = cleaned[0];
-  const baseDigits = base.split('');
 
   const groupSize = parseInt(repetitionOption) || 0;
 
@@ -80,9 +78,13 @@ function buildOutput(lines, repetitionOption, style){
   cleaned.forEach((line, index)=>{
     const digits = line.split('');
     
+    // Compare to previous line (or no comparison for first line)
+    const prevLine = index > 0 ? cleaned[index - 1] : null;
+    const prevDigits = prevLine ? prevLine.split('') : null;
+    
     // Build plain text with Discord-style formatting (used for both display and copy)
     const plainTokens = digits.map((d,i)=>{
-      const changed = (d!==baseDigits[i]);
+      const changed = prevDigits && (d !== prevDigits[i]);
       if(style==='bold' && changed) return '**'+d+'**';
       if(style==='underline' && changed) return '__'+d+'__';
       return d;
