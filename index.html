@@ -12,7 +12,7 @@ select, button { padding:8px 10px; border-radius:8px; border:1px solid #4b4b4b; 
 .controls { display:flex; flex-wrap:wrap; gap:10px; margin:12px 0; align-items:center; }
 .output-container { position:relative; margin-top:16px; }
 .copyBtn { position:absolute; top:10px; right:10px; padding:6px 10px; border-radius:6px; background:#555; color:#fff; border:none; cursor:pointer; display:none; }
-.output { background:#3a3a3a; padding:14px; border-radius:10px; font-family:"Courier New", Courier, monospace; font-size:1.05rem; line-height:1.4; white-space:pre-wrap; overflow-x:auto; word-break:break-word; min-height:80px; }
+.output { background:#1e1e1e; padding:14px; border-radius:10px; font-family:"Courier New", Courier, monospace; font-size:1.05rem; line-height:1.4; white-space:pre-wrap; overflow-x:auto; word-break:break-word; min-height:80px; border:1px solid #4b4b4b; }
 .underline { text-decoration: underline; }
 b { font-weight: bold; }
 @media(max-width:600px){ .output{ font-size:0.95rem; } select,button{ font-size:13px; padding:7px 9px; } }
@@ -79,7 +79,15 @@ function buildOutput(lines, repetitionOption, style){
       return d;
     });
     const htmlLine = tokens.join(' ');
-    const plainLine = tokens.map(t=>t.replace(/<\/?b>/g,'').replace(/<\/?span[^>]*>/g,'')).join(' ');
+    
+    // Build plain text with Discord-style formatting
+    const plainTokens = digits.map((d,i)=>{
+      const changed = (d!==baseDigits[i]);
+      if(style==='bold' && changed) return '**'+d+'**';
+      if(style==='underline' && changed) return '__'+d+'__';
+      return d;
+    });
+    const plainLine = plainTokens.join(' ');
 
     for(let i=0;i<repetition;i++){
       htmlParts.push(htmlLine);
