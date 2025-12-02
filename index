@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Number Difference Highlighter — Dark Mode</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; background: #2c2c2c; color: #e6e6e6; }
+h1 { margin-bottom: 12px; font-size: 18px; }
+textarea { width:100%; min-height:140px; padding:12px; border-radius:8px; border:1px solid #4b4b4b; background:#333; color:#e6e6e6; font-size:14px; box-sizing:border-box; }
+select, button { padding:8px 10px; border-radius:8px; border:1px solid #4b4b4b; background:#444; color:#e6e6e6; font-size:14px; }
+.controls { display:flex; flex-wrap:wrap; gap:10px; margin:12px 0; align-items:center; }
+.output-container { position:relative; margin-top:16px; }
+.copyBtn { position:absolute; top:10px; right:10px; padding:6px 10px; border-radius:6px; background:#555; color:#fff; border:none; cursor:pointer; display:none; }
+.output { background:#3a3a3a; padding:14px; border-radius:10px; font-family:"Courier New", Courier, monospace; font-size:1.05rem; line-height:1.4; white-space:pre-wrap; overflow-x:auto; word-break:break-word; min-height:80px; }
+.underline { text-decoration: underline; }
+b { font-weight: bold; }
+@media(max-width:600px){ .output{ font-size:0.95rem; } select,button{ font-size:13px; padding:7px 9px; } }
+</style>
+</head>
+<body>
+
+<h1>Number Difference Highlighter (Dark Mode)</h1>
+
+<textarea id="inputBox" placeholder="Enter number combinations, one per line. Non-digit characters and spaces will be removed."></textarea>
+
+<div class="controls">
+  <label for="styleOption">Highlight:</label>
+  <select id="styleOption">
+    <option value="none">None</option>
+    <option value="bold">Bold</option>
+    <option value="underline">Underline</option>
+  </select>
+
+  <label for="spaceOption">Line repetition:</label>
+  <select id="spaceOption">
+    <option value="none">None</option>
+    <option value="1">1</option>
+    <option value="5">5</option>
+    <option value="10">10</option>
+    <option value="20">20</option>
+  </select>
+</div>
+
+<div class="output-container">
+  <button class="copyBtn" id="copyBtn">COPY</button>
+  <div id="output" class="output"></div>
+</div>
+
+<script>
+const inputBox = document.getElementById('inputBox');
+const styleOption = document.getElementById('styleOption');
+const spaceOption = document.getElementById('spaceOption');
+const outputDiv = document.getElementById('output');
+const copyBtn = document.getElementById('copyBtn');
+
+function sanitizeLine(line){
+  return (line||'').replace(/\D+/g,'');
+}
+
+function buildOutput(lines, repetitionOption, style){
+  const cleaned = lines.map(l=>sanitizeLine(l)).filter(l=>l.length>0);
+  if(cleaned.length===0) return {htmlOut:'', plainOut:''};
+  const base = cleaned[0];
+  const baseDigits = base.split('');
+
+  let repetition = 1;
+  if(repetitionOption !== 'none') repetition = Math.max(1, parseInt(repetitionOption)||1);
+
+  const htmlParts = [];
+  const plainParts = [];
+
+  cleaned.forEach(line=>{
+    const digits = line.split('');
+    const tokens = digits.map((d,i)=>{
+      const changed = (d!==baseDigits[i]);
+      if(style==='bold' && changed) return '<b>'+d+'</b>';
+      if(style==='underline' && changed) return '<span class="underline">'+d+'</span>';
+      return d;
+    });
+    const htmlLine = tokens.join(' ');
+    const plainLine = tokens.map(t=>t.replace(/<\/?b>/g,'').replace(/<\/?span[^>]*>/g,'')).join(' ');
+
+    for(let i=0;i<repetition;i++){
+      htmlParts.push(htmlLine);
+      plainParts.push(plainLine);
+    }
+  });
+
+  return { htmlOut: htmlParts.join('<br>'), plainOut: plainParts.join('\n') };
+}
+
+function updateOutput(){
+  const rawLines = inputBox.value.split(/\r?\n/);
+  const style = styleOption.value;
+  const repetitionOption = spaceOption.value;
+
+  const { htmlOut, plainOut } = buildOutput(rawLines, repetitionOption, style);
+  outputDiv.innerHTML = htmlOut;
+  outputDiv.dataset.plain = plainOut;
+
+  if(htmlOut) copyBtn.style.display = 'inline-block';
+  else copyBtn.style.display = 'none';
+}
+
+// Live updates on input and option change
+inputBox.addEventListener('input', updateOutput);
+styleOption.addEventListener('change', updateOutput);
+spaceOption.addEventListener('change', updateOutput);
+
+// Copy button
+copyBtn.addEventListener('click', ()=>{
+  const text = outputDiv.dataset.plain || '';
+  navigator.clipboard.writeText(text).then(()=>{
+    copyBtn.innerText='COPIED!';
+    setTimeout(()=>copyBtn.innerText='COPY',1200);
+  });
+});
+
+// Initialize
+updateOutput();
+</script>
+
+</body>
+</html>
