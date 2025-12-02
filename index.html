@@ -6,16 +6,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 body { font-family: Arial, sans-serif; padding: 20px; background: #2c2c2c; color: #e6e6e6; }
-h1 { margin-bottom: 12px; font-size: 18px; }
-textarea { width:100%; min-height:140px; padding:12px; border-radius:8px; border:1px solid #4b4b4b; background:#333; color:#e6e6e6; font-size:14px; box-sizing:border-box; }
-select, button { padding:8px 10px; border-radius:8px; border:1px solid #4b4b4b; background:#444; color:#e6e6e6; font-size:14px; }
+h1 { margin-bottom: 12px; font-size: clamp(16px, 4vw, 18px); }
+textarea { width:100%; min-height:140px; padding:12px; border-radius:8px; border:1px solid #4b4b4b; background:#333; color:#e6e6e6; font-size: clamp(13px, 3.5vw, 14px); box-sizing:border-box; }
+select, button { padding:8px 10px; border-radius:8px; border:1px solid #4b4b4b; background:#444; color:#e6e6e6; font-size: clamp(12px, 3.5vw, 14px); }
 .controls { display:flex; flex-wrap:wrap; gap:10px; margin:12px 0; align-items:center; }
 .output-container { position:relative; margin-top:16px; }
-.copyBtn { position:absolute; top:10px; right:10px; padding:6px 10px; border-radius:6px; background:#555; color:#fff; border:none; cursor:pointer; display:none; }
-.output { background:#1e1e1e; padding:14px; border-radius:10px; font-family:"Courier New", Courier, monospace; font-size:1.05rem; line-height:1.4; white-space:pre-wrap; overflow-x:auto; word-break:break-word; min-height:80px; border:1px solid #4b4b4b; }
+.output-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; min-height:24px; }
+.copyBtn { padding:6px 10px; border-radius:6px; background:#555; color:#fff; border:none; cursor:pointer; display:none; }
+.char-count { font-size:0.9rem; color:#999; font-weight:bold; }
+.char-limit { color:#ff3b3b; font-weight:bold; }
+.output { background:#1e1e1e; padding:14px; border-radius:10px; font-family:"Courier New", Courier, monospace; font-size: clamp(0.85rem, 2.5vw, 1.05rem); line-height:1.4; white-space:pre-wrap; overflow-x:auto; word-break:break-word; min-height:80px; border:1px solid #4b4b4b; }
 .underline { text-decoration: underline; }
 b { font-weight: bold; }
-@media(max-width:600px){ .output{ font-size:0.95rem; } select,button{ font-size:13px; padding:7px 9px; } }
+@media(max-width:600px){ .output{ font-size: clamp(0.8rem, 2.5vw, 0.95rem); } select,button{ font-size: clamp(12px, 3.5vw, 13px); padding:7px 9px; } }
 </style>
 </head>
 <body>
@@ -34,7 +37,7 @@ b { font-weight: bold; }
 
   <label for="spaceOption">Line repetition:</label>
   <select id="spaceOption">
-    <option value="none">None</option>
+    <option value="0">None</option>
     <option value="1">1</option>
     <option value="5">5</option>
     <option value="10">10</option>
@@ -43,7 +46,10 @@ b { font-weight: bold; }
 </div>
 
 <div class="output-container">
-  <button class="copyBtn" id="copyBtn">COPY</button>
+  <div class="output-header">
+    <button class="copyBtn" id="copyBtn">COPY</button>
+    <div class="char-count" id="charCount"></div>
+  </div>
   <div id="output" class="output"></div>
 </div>
 
@@ -53,6 +59,9 @@ const styleOption = document.getElementById('styleOption');
 const spaceOption = document.getElementById('spaceOption');
 const outputDiv = document.getElementById('output');
 const copyBtn = document.getElementById('copyBtn');
+const charCount = document.getElementById('charCount');
+
+const MAX_CHARS = 2000;
 
 function sanitizeLine(line){
   return (line||'').replace(/\D+/g,'');
@@ -60,27 +69,18 @@ function sanitizeLine(line){
 
 function buildOutput(lines, repetitionOption, style){
   const cleaned = lines.map(l=>sanitizeLine(l)).filter(l=>l.length>0);
-  if(cleaned.length===0) return {htmlOut:'', plainOut:''};
+  if(cleaned.length===0) return {htmlOut:'', plainOut:'', charCount:0};
   const base = cleaned[0];
   const baseDigits = base.split('');
 
-  let repetition = 1;
-  if(repetitionOption !== 'none') repetition = Math.max(1, parseInt(repetitionOption)||1);
+  const groupSize = parseInt(repetitionOption) || 0;
 
-  const htmlParts = [];
-  const plainParts = [];
+  const allLines = [];
 
-  cleaned.forEach(line=>{
+  cleaned.forEach((line, index)=>{
     const digits = line.split('');
-    const tokens = digits.map((d,i)=>{
-      const changed = (d!==baseDigits[i]);
-      if(style==='bold' && changed) return '<b>'+d+'</b>';
-      if(style==='underline' && changed) return '<span class="underline">'+d+'</span>';
-      return d;
-    });
-    const htmlLine = tokens.join(' ');
     
-    // Build plain text with Discord-style formatting
+    // Build plain text with Discord-style formatting (used for both display and copy)
     const plainTokens = digits.map((d,i)=>{
       const changed = (d!==baseDigits[i]);
       if(style==='bold' && changed) return '**'+d+'**';
@@ -89,13 +89,32 @@ function buildOutput(lines, repetitionOption, style){
     });
     const plainLine = plainTokens.join(' ');
 
-    for(let i=0;i<repetition;i++){
-      htmlParts.push(htmlLine);
-      plainParts.push(plainLine);
+    allLines.push(plainLine);
+    
+    // Add blank line after every groupSize lines (but not after the last line)
+    if(groupSize > 0 && (index + 1) % groupSize === 0 && index < cleaned.length - 1){
+      allLines.push('');
     }
   });
 
-  return { htmlOut: htmlParts.join('<br>'), plainOut: plainParts.join('\n') };
+  // Trim to fit within MAX_CHARS, removing lines from the end
+  let finalLines = [];
+  let currentLength = 0;
+  
+  for(let i = 0; i < allLines.length; i++){
+    const lineWithNewline = allLines[i] + (i < allLines.length - 1 ? '\n' : '');
+    if(currentLength + lineWithNewline.length <= MAX_CHARS){
+      finalLines.push(allLines[i]);
+      currentLength += lineWithNewline.length;
+    } else {
+      break;
+    }
+  }
+
+  const plainOut = finalLines.join('\n');
+  const htmlOut = finalLines.join('<br>');
+
+  return { htmlOut, plainOut, charCount: plainOut.length };
 }
 
 function updateOutput(){
@@ -103,9 +122,20 @@ function updateOutput(){
   const style = styleOption.value;
   const repetitionOption = spaceOption.value;
 
-  const { htmlOut, plainOut } = buildOutput(rawLines, repetitionOption, style);
+  const { htmlOut, plainOut, charCount: count } = buildOutput(rawLines, repetitionOption, style);
   outputDiv.innerHTML = htmlOut;
   outputDiv.dataset.plain = plainOut;
+
+  // Update character count display
+  if(count > 0){
+    const isAtLimit = count >= MAX_CHARS;
+    charCount.innerHTML = isAtLimit 
+      ? `<span class="char-limit">${count} / ${MAX_CHARS} characters (at limit)</span>`
+      : `${count} / ${MAX_CHARS} characters`;
+    charCount.style.display = 'block';
+  } else {
+    charCount.style.display = 'none';
+  }
 
   if(htmlOut) copyBtn.style.display = 'inline-block';
   else copyBtn.style.display = 'none';
