@@ -1238,7 +1238,6 @@ function setupRealtimeSync() {
   
   database.ref('users').on('value', snapshot => {
     if (snapshot.exists()) {
-      const oldUsers = users;
       users = snapshot.val();
       
       // If current user was deleted, log them out
@@ -1253,10 +1252,12 @@ function setupRealtimeSync() {
       
       // If current user's role changed, update it
       if(currentUser && users[currentUser]) {
-        currentUserRole = users[currentUser].role;
+        const newRole = users[currentUser].role;
+        if(newRole !== currentUserRole) {
+          currentUserRole = newRole;
+          updateUIForAuth();
+        }
       }
-      
-      updateUIForAuth();
       
       // Always re-render users list if modal is open
       if(el('usersModal').style.display === 'flex') {
