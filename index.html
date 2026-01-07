@@ -1486,6 +1486,9 @@ window.changePassword = changePassword;
 
 async function checkAuth(){
   try {
+    // Check session FIRST before doing anything else
+    const saved = sessionStorage.getItem('vaultUser');
+    
     await loadUsersFromFirebase();
     
     const vaultSnapshot = await database.ref('vault').once('value');
@@ -1499,12 +1502,14 @@ async function checkAuth(){
       users.superadmin = { password:'super2024', role:'superadmin' };
       await saveUsersToFirebase();
     }
-    const saved = sessionStorage.getItem('vaultUser');
+    
+    // Now check if the saved session is valid
     if(saved && users[saved]){
       currentUser = saved;
       currentUserRole = users[saved].role;
       updateUIForAuth();
     } else {
+      // Only show login if there's no valid session
       updateUIForAuth();
       showLoginRequired();
     }
