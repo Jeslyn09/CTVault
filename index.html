@@ -1,312 +1,1495 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<title>Vault Tool</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Vault Tool - Highlight · Generator · Admin</title>
 <style>
-body { font-family: Arial, sans-serif; padding: 20px; background: #2c2c2c; color: #e6e6e6; margin: 0; }
-h1 { margin-bottom: 12px; font-size: clamp(16px, 4vw, 18px); }
-.tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #4b4b4b; }
-.tab { padding: 10px 20px; background: #333; border: none; color: #e6e6e6; cursor: pointer; border-radius: 8px 8px 0 0; font-size: clamp(13px, 3.5vw, 14px); }
-.tab.active { background: #444; border-bottom: 2px solid #0084ff; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-textarea { width:100%; min-height:140px; padding:12px; border-radius:8px; border:1px solid #4b4b4b; background:#333; color:#e6e6e6; font-size: clamp(13px, 3.5vw, 14px); box-sizing:border-box; }
-input[type="text"], input[type="number"] { width:100%; padding:10px; border-radius:8px; border:1px solid #4b4b4b; background:#333; color:#e6e6e6; font-size: clamp(13px, 3.5vw, 14px); box-sizing:border-box; margin-bottom: 12px; }
-select, button { padding:8px 10px; border-radius:8px; border:1px solid #4b4b4b; background:#444; color:#e6e6e6; font-size: clamp(12px, 3.5vw, 14px); cursor: pointer; }
-button:hover { background: #555; }
-.controls { display:flex; flex-wrap:wrap; gap:10px; margin:12px 0; align-items:center; }
-.output-container { position:relative; margin-top:16px; }
-.output-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; min-height:24px; }
-.copyBtn { padding:6px 10px; border-radius:6px; background:#555; color:#fff; border:none; cursor:pointer; display:none; }
-.char-count { font-size:0.9rem; color:#999; font-weight:bold; }
-.char-limit { color:#ff3b3b; font-weight:bold; }
-.combo-count { font-size:0.9rem; color:#4a9eff; font-weight:bold; }
-.output { background:#1e1e1e; padding:14px; border-radius:10px; font-family:"Courier New", Courier, monospace; font-size: clamp(0.85rem, 2.5vw, 1.05rem); line-height:1.4; white-space:pre-wrap; overflow-x:auto; word-break:break-word; min-height:80px; border:1px solid #4b4b4b; max-height: 500px; overflow-y: auto; }
-.underline { text-decoration: underline; }
-b { font-weight: bold; }
-label { font-size: clamp(13px, 3.5vw, 14px); }
-.form-group { margin-bottom: 16px; }
-.generate-btn { background: #0084ff; color: white; padding: 10px 20px; font-weight: bold; }
-.generate-btn:hover { background: #0073e6; }
-@media(max-width:600px){ .output{ font-size: clamp(0.8rem, 2.5vw, 0.95rem); } select,button{ font-size: clamp(12px, 3.5vw, 13px); padding:7px 9px; } }
+:root{
+  --bg:#0d0f12; --surface:#16191e; --surface-2:#1e2228; --muted:#a8a8a8; --text:#e6e6e6; --accent:#3d7afe; --accent-strong:#6a96ff; --danger:#ff4d4f; --success:#4caf50; --card-border:#24262b; --radius:12px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{font-family:Inter, Arial, sans-serif;margin:0;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+body.locked .container, body.locked .header .controls{filter:blur(8px);pointer-events:none;user-select:none}
+.header{display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--card-border);flex-wrap:wrap;gap:12px}
+.header h1{margin:0;font-size:18px}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:8px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn.ghost{background:transparent;border:1px solid var(--card-border);color:var(--muted)}
+.btn.small{padding:6px 10px;font-size:12px}
+.container{padding:20px;max-width:1200px;margin:0 auto}
+.left{width:100%}
+.card{background:var(--surface);padding:16px;border-radius:12px;border:1px solid var(--card-border);margin-bottom:16px}
+.tabs{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;flex-wrap:wrap}
+.tab{padding:8px 12px;border-radius:8px;background:transparent;border:none;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab.active{color:var(--text);background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-bottom:2px solid var(--accent)}
+.tab.hidden{display:none}
+textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--surface-2);color:var(--text);margin-bottom:10px;font-size:14px}
+.output{background:var(--surface);padding:12px;border-radius:10px;min-height:120px;font-family:monospace;white-space:pre-wrap;overflow:auto;border:1px solid var(--card-border)}
+.copyBtn{padding:6px 10px;border-radius:8px;background:#2b2f34;color:var(--text);border:none;cursor:pointer;font-size:14px}
+.small{font-size:0.9rem;color:var(--muted)}
+.user-status{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px}
+.status-superadmin{background:#8b4cf6;color:white}
+.status-admin{background:#ff7b4d;color:white}
+.status-monkey{background:#49b56e;color:white}
+.modal{display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.modal .modal-content{background:var(--surface-2);padding:20px;border-radius:12px;width:100%;max-width:480px;border:1px solid var(--card-border);max-height:90vh;overflow-y:auto}
+.lock-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;padding:32px;background:var(--surface);border-radius:12px;border:1px solid var(--card-border);color:var(--muted);z-index:999;min-width:320px;max-width:90%}
+.pagination{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:12px;flex-wrap:wrap}
+.activity-log{background:var(--surface-2);padding:8px 12px;border-radius:8px;margin-bottom:8px;font-size:13px}
+.activity-log .timestamp{color:var(--muted);font-size:11px}
+.search-box{margin-bottom:16px;padding:12px;background:var(--surface-2);border-radius:8px}
+
+@media (max-width: 768px) {
+  .header{padding:12px 16px}
+  .header h1{font-size:16px}
+  .container{padding:12px}
+  .card{padding:12px}
+  .btn{padding:6px 12px;font-size:13px}
+  input,select,textarea{font-size:16px}
+  .tabs{gap:4px}
+  .tab{padding:6px 10px;font-size:13px}
+}
 </style>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
-<h1>Vault Tool</h1>
+<header class="header">
+  <h1>Vault Tool</h1>
+  <div class="controls" id="userInfo"></div>
+</header>
 
-<div class="tabs">
-  <button class="tab active" onclick="switchTab('highlighter')">Highlight & Spacing</button>
-  <button class="tab" onclick="switchTab('generator')">Code Generator</button>
-</div>
-
-<!-- TAB 1: Difference Highlighter -->
-<div id="highlighter" class="tab-content active">
-  <textarea id="inputBox" placeholder="Enter number combinations."></textarea>
-
-  <div class="controls">
-    <label for="styleOption">Highlight:</label>
-    <select id="styleOption">
-      <option value="none">None</option>
-      <option value="bold">Bold</option>
-      <option value="underline">Underline</option>
-    </select>
-
-    <label for="spaceOption">Spacing:</label>
-    <select id="spaceOption">
-      <option value="0">None</option>
-      <option value="1">1</option>
-      <option value="5">5</option>
-      <option value="10">10</option>
-      <option value="20">20</option>
-    </select>
-  </div>
-
-  <div class="output-container">
-    <div class="output-header">
-      <button class="copyBtn" id="copyBtn">COPY</button>
-      <div class="char-count" id="charCount"></div>
+<main class="container">
+  <div class="left">
+    <div class="tabs" id="mainTabs">
+      <button class="tab active" data-tab="highlighter">Highlight & Spacing</button>
+      <button class="tab" data-tab="generator">Vault Generator</button>
+      <button class="tab" data-tab="status">Codes & Status</button>
+      <button class="tab" data-tab="verify">Verify</button>
+      <button class="tab hidden" id="usersTab" data-tab="users">Users</button>
     </div>
-    <div id="output" class="output"></div>
-  </div>
-</div>
 
-<!-- TAB 2: Code Generator -->
-<div id="generator" class="tab-content">
-  <div class="form-group">
-    <label for="numbersInput">Numbers in Sequence (comma-separated):</label>
-    <input type="text" id="numbersInput" placeholder="e.g. 1, 4, 6, 7">
-  </div>
+    <section class="card" id="highlighter">
+      <h3>Highlight & Spacing</h3>
+      <textarea id="inputBox" placeholder="Paste number combos or codes..." rows="6"></textarea>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:150px">
+          <label class="small">Highlight</label>
+          <select id="styleOption">
+            <option value="none">None</option>
+            <option value="bold">Bold</option>
+            <option value="underline">Underline</option>
+          </select>
+        </div>
+        <div style="width:140px;min-width:120px">
+          <label class="small">Spacing</label>
+          <select id="spaceOption">
+            <option value="0">None</option>
+            <option value="1">1</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+      </div>
+     <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+       <button class="copyBtn" id="copyBtn">COPY</button>
+       <div class="small" id="charCount" style="margin:0"></div>
+      </div>
+      <div class="output" id="output"></div>
+    </section>
 
-  <div class="form-group">
-    <label for="digitAmount">Digit Amount:</label>
-    <input type="number" id="digitAmount" min="1" max="10" value="8" placeholder="e.g. 8">
-  </div>
+    <section class="card" id="generator" style="display:none">
+      <h3>Vault Generator</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label class="small">Numbers in Sequence (comma-separated)</label>
+          <input id="numbersInput" placeholder="e.g. 0,2,3,4,5,6" />
+        </div>
+        <div>
+          <label class="small">Digit Amount</label>
+          <input id="digitAmount" type="number" min="1" max="10" value="8" />
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <label class="small">Starting Number (leave empty for all)</label>
+        <input id="startingNumber" placeholder="e.g. 1 or leave empty" />
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn" id="genBtn">GENERATE</button>
+        <button class="btn" id="proposeVaultBtn">Proposed as Vault</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
+        <div class="small combo-count" id="comboCount"></div>
+        <button class="copyBtn" id="copyBtn2" style="display:none">COPY</button>
+      </div>
+      <div class="output" id="output2" style="margin-top:8px"></div>
+    </section>
 
-  <div class="form-group">
-    <label for="startingNumber">Starting Number (leave empty for all):</label>
-    <input type="text" id="startingNumber" placeholder="e.g. 1 or leave empty">
-  </div>
+    <section class="card" id="status" style="display:none">
+      <div style="text-align:center;margin-bottom:24px">
+        <h1 style="font-size:clamp(24px, 5vw, 32px);margin:0 0 8px 0" id="vault-title-display">No Vault Proposed</h1>
+        <div style="font-size:clamp(16px, 4vw, 20px);color:var(--accent)" id="vault-reward-display">—</div>
+        <div style="font-size:clamp(18px, 4vw, 24px);margin-top:12px;display:none" id="vault-code-display"></div>
+      </div>
 
-  <button class="generate-btn" onclick="generateCombinations()">GENERATE</button>
+      <h2 style="margin-bottom:16px">Codes & Status</h2>
+      <div style="margin-bottom:20px;padding:12px;background:var(--surface-2);border-radius:8px;font-size:14px">
+        <strong>Total Codes:</strong> <span id="status-total">0</span> | 
+        <strong>Verified:</strong> <span id="status-verified">0</span> | 
+        <strong>Unverified:</strong> <span id="status-unverified">0</span>
+      </div>
 
-  <div class="output-container">
-    <div class="output-header">
-      <div class="combo-count" id="comboCount"></div>
-      <button class="copyBtn" id="copyBtn2">COPY</button>
-    </div>
-    <div id="output2" class="output"></div>
+      <h3 style="margin-bottom:12px">Pull Codes</h3>
+      <div style="margin-bottom:12px">
+        <label class="small">Username:</label>
+        <input id="pull-username" placeholder="Enter username" style="margin-bottom:8px" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <label class="small">Combination Amount (1-100)</label>
+          <input id="pull-amount" type="number" min="1" max="100" placeholder="1-100" />
+        </div>
+        <div>
+          <label class="small">Starting Digit (Optional)</label>
+          <input id="pull-start" placeholder="Starting digit" />
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div>
+          <label class="small">Highlight</label>
+          <select id="pull-highlight">
+            <option value="none">None</option>
+            <option value="bold">Bold</option>
+            <option value="underline">Underline</option>
+          </select>
+        </div>
+        <div>
+          <label class="small">Spacing</label>
+          <select id="pull-spacing">
+            <option value="0">None</option>
+            <option value="1">1</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn" id="pullBtn" style="margin-bottom:12px">Generate</button>
+      
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <div class="small" id="pull-char-count">0 / 2,000 Characters</div>
+        <button class="copyBtn" id="copyPulled" style="display:none">Copy</button>
+      </div>
+      <textarea id="pulled-output" rows="8" readonly style="margin-bottom:8px"></textarea>
+    </section>
+
+    <section class="card" id="verify" style="display:none">
+      <div id="correct-code-proposal" style="display:none;margin-bottom:20px;padding:16px;background:var(--surface-2);border-radius:8px;border:2px solid var(--accent)">
+        <h3 style="margin:0 0 8px 0">Correct Code Proposed</h3>
+        <div style="margin-bottom:8px">
+          <strong>Proposed by:</strong> <span id="cc-proposer"></span> <span id="cc-proposer-role" class="small"></span>
+        </div>
+        <div style="font-family:monospace;font-size:clamp(14px, 3vw, 18px);margin:12px 0;word-break:break-all" id="cc-code"></div>
+        <div style="margin-bottom:12px">
+          <strong>Confirmations:</strong> <span id="cc-confirmations">0/2</span>
+          <div id="cc-confirmed-by" class="small" style="margin-top:4px;color:var(--success)"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="confirmCorrectCodeBtn">Confirm</button>
+          <button class="btn ghost" id="denyCorrectCodeBtn">Deny</button>
+        </div>
+      </div>
+
+      <div id="proposed-vault-section" style="display:none;margin-bottom:20px;padding:16px;background:var(--surface-2);border-radius:8px;border:2px solid var(--accent)">
+        <h3 style="margin:0 0 12px 0">Proposed Vault</h3>
+        <div style="margin-bottom:8px">
+          <strong>Proposed by:</strong> <span id="pv-proposer"></span> <span id="pv-proposer-role" class="small"></span>
+        </div>
+        <div style="margin-bottom:8px">
+          <strong>Name:</strong> <span id="pv-title"></span>
+        </div>
+        <div style="margin-bottom:8px">
+          <strong>Reward:</strong> <span id="pv-reward"></span>
+        </div>
+        <div style="margin-bottom:8px">
+          <strong>Numbers in Sequence:</strong> <span id="pv-numbers"></span>
+        </div>
+        <div style="margin-bottom:8px">
+          <strong>Digit Amount:</strong> <span id="pv-digits"></span>
+        </div>
+        <div style="margin-bottom:12px">
+          <strong>Total Codes:</strong> <span id="pv-total"></span>
+        </div>
+        <div style="margin-bottom:12px">
+          <strong>Confirmations:</strong> <span id="pv-confirmations">0/2</span>
+          <div id="pv-confirmed-by" class="small" style="margin-top:4px;color:var(--success)"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="confirmVaultBtn">Confirm</button>
+          <button class="btn ghost" id="denyVaultBtn">Deny</button>
+        </div>
+      </div>
+
+      <h3>Search Code</h3>
+      <div style="margin-bottom:16px">
+        <input id="search-code-input" placeholder="Enter code to search (e.g., 0,0,2,3,4,5,6)" style="margin-bottom:8px" />
+        <button class="btn" id="searchCodeBtn">Search</button>
+        <div id="search-result" style="margin-top:8px;padding:8px;background:var(--surface-2);border-radius:8px;display:none"></div>
+      </div>
+
+      <h2 style="margin-bottom:12px">Users:</h2>
+      <select id="user-select" style="margin-bottom:16px">
+        <option value="">Select a user...</option>
+      </select>
+
+      <div id="user-codes-section" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div>
+            <h3 style="margin:0">Username: <span id="selected-username"></span></h3>
+            <div class="small" style="margin-top:4px">Total Verified Codes: <span id="user-verified-count">0</span></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn small" id="verifyAllBtn">Verify All</button>
+            <button class="btn ghost small" id="redistributeAllBtn">Redistribute All</button>
+          </div>
+        </div>
+
+        <h3 style="margin-bottom:12px">Pulled Unverified Codes</h3>
+        <div id="user-codes-list"></div>
+        <div id="unverified-pagination" class="pagination"></div>
+
+        <div class="search-box">
+          <h3 style="margin:0 0 8px 0">Search Codes</h3>
+          <input id="code-search" placeholder="Search by code..." style="margin-bottom:0" />
+        </div>
+
+        <h3 style="margin:20px 0 12px 0">Verified Code History</h3>
+        <div id="user-verified-list"></div>
+        <div id="verified-pagination" class="pagination"></div>
+      </div>
+    </section>
+
+    <section class="card" id="users" style="display:none">
+      <h3>Login & Account</h3>
+      <div id="accountBlock"></div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="loginBtn">Login</button>
+        <button class="btn ghost" id="logoutBtn" style="display:none">Logout</button>
+      </div>
+
+      <div style="margin-top:20px" id="adminPanel" style="display:none">
+        <h3>Admin / Users</h3>
+        <button class="btn" id="openUsers">Manage Users</button>
+        <div style="margin-top:8px" class="small">Data is synced to Firebase cloud storage in real-time.</div>
+      </div>
+
+      <div style="margin-top:24px" id="activityLogSection">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <h3 style="margin:0">Activity Logs</h3>
+          <button class="btn small ghost" id="clearLogsBtn">Clear Logs</button>
+        </div>
+        <div style="margin-bottom:12px">
+          <input id="log-search" placeholder="Search logs..." style="margin-bottom:0" />
+        </div>
+        <div id="activity-logs-list" style="max-height:400px;overflow-y:auto"></div>
+        <div id="logs-pagination" class="pagination"></div>
+      </div>
+    </section>
   </div>
-</div>
+</main>
+
+<div id="usersModal" class="modal"><div class="modal-content">
+  <h3>Users</h3>
+  <div style="margin-bottom:8px"><button class="btn" onclick="showAddUserModal()">+ Add User</button></div>
+  <div id="usersList"></div>
+  <div style="text-align:right;margin-top:12px"><button class="btn ghost" onclick="closeUsersModal()">Close</button></div>
+</div></div>
+
+<div id="addUserModal" class="modal"><div class="modal-content">
+  <h3 id="userModalTitle">Add New User</h3>
+  <label>Username</label><input id="newUsername" />
+  <label>Password</label><input id="newPassword" type="password" />
+  <label>Role</label>
+  <select id="newUserRole"><option value="monkey">Vault Monkey</option><option value="admin">Vault Admin</option><option value="superadmin">Admin</option></select>
+  <div style="margin-top:8px" id="addUserError" class="small" style="color:var(--danger);display:none"></div>
+  <div style="text-align:right;margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+    <button class="btn" id="confirmAddUser">Confirm</button>
+    <button class="btn ghost" onclick="closeAddUserModal()">Cancel</button>
+  </div>
+</div></div>
+
+<div id="loginModal" class="modal"><div class="modal-content">
+  <h3>Login to Vault</h3>
+  <label>Username</label><input id="loginUsername" />
+  <label>Password</label><input id="loginPassword" type="password" />
+  <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn" id="confirmLogin">Login</button>
+    <button class="btn ghost" onclick="closeLoginModal()">Cancel</button>
+  </div>
+  <div id="loginError" class="small" style="color:var(--danger);display:none;margin-top:8px"></div>
+</div></div>
+
+<div id="proposeVaultModal" class="modal"><div class="modal-content">
+  <h3>Propose as Vault</h3>
+  <label>Vault Title</label><input id="vaultTitle" placeholder="Enter vault title" />
+  <label>Vault Reward</label><input id="vaultReward" placeholder="Enter reward amount" />
+  <div id="proposeVaultError" class="small" style="color:var(--danger);display:none;margin-top:8px"></div>
+  <div style="text-align:right;margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+    <button class="btn" id="confirmProposeVault">Submit</button>
+    <button class="btn ghost" onclick="closeProposeVaultModal()">Cancel</button>
+  </div>
+</div></div>
 
 <script>
-// Tab switching
-function switchTab(tabName) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-  event.target.classList.add('active');
-  document.getElementById(tabName).classList.add('active');
-}
-
-// TAB 1: Difference Highlighter
-const inputBox = document.getElementById('inputBox');
-const styleOption = document.getElementById('styleOption');
-const spaceOption = document.getElementById('spaceOption');
-const outputDiv = document.getElementById('output');
-const copyBtn = document.getElementById('copyBtn');
-const charCount = document.getElementById('charCount');
-
 const MAX_CHARS = 2000;
+const ITEMS_PER_PAGE = 50;
 
-function sanitizeLine(line){
-  return (line||'').replace(/\D+/g,'');
-}
+const firebaseConfig = {
+  apiKey: "AIzaSyDuJoYdLIR5UvJ9LQZ3kOSe3PcQDrg9J8w",
+  authDomain: "vault-tool.firebaseapp.com",
+  databaseURL: "https://vault-tool-default-rtdb.firebaseio.com",
+  projectId: "vault-tool",
+  storageBucket: "vault-tool.firebasestorage.app",
+  messagingSenderId: "722115511304",
+  appId: "1:722115511304:web:ae7c6abdf37240e0bbbdbd"
+};
 
-function buildOutput(lines, repetitionOption, style){
-  const cleaned = lines.map(l=>sanitizeLine(l)).filter(l=>l.length>0);
-  if(cleaned.length===0) return {htmlOut:'', plainOut:'', charCount:0};
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
-  const groupSize = parseInt(repetitionOption) || 0;
+let users = { 'superadmin': { password: 'super2024', role: 'superadmin' } };
+let currentUser = null;
+let currentUserRole = null;
+let db = { 
+  unverified: [], 
+  verified: [], 
+  proposedVault: null, 
+  proposedBy: null, 
+  vaultConfirmations: {}, 
+  correctCodeProposal: null,
+  correctCodeProposedBy: null,
+  correctCodeConfirmations: {},
+  userPulledCodes: {},
+  userVerifiedHistory: {},
+  activityLogs: []
+};
 
-  const allLines = [];
+let currentUnverifiedPage = 1;
+let currentVerifiedPage = 1;
+let currentLogsPage = 1;
+let filteredVerifiedCodes = [];
+let filteredLogs = [];
+let lastGeneratedCodes = [];
 
-  cleaned.forEach((line, index)=>{
-    const digits = line.split('');
-    
-    // Compare to previous line (or no comparison for first line)
-    const prevLine = index > 0 ? cleaned[index - 1] : null;
-    const prevDigits = prevLine ? prevLine.split('') : null;
-    
-    // Build plain text with Discord-style formatting (used for both display and copy)
-    const plainTokens = digits.map((d,i)=>{
-      const changed = prevDigits && (d !== prevDigits[i]);
-      if(style==='bold' && changed) return '**'+d+'**';
-      if(style==='underline' && changed) return '__'+d+'__';
-      return d;
-    });
-    const plainLine = plainTokens.join(' ');
+// Helper functions
+function el(id) { return document.getElementById(id); }
+function show(element) { element.style.display = 'block'; }
+function hide(element) { element.style.display = 'none'; }
+function openModal(id) { el(id).style.display = 'flex'; }
+function closeModal(id) { el(id).style.display = 'none'; }
 
-    allLines.push(plainLine);
-    
-    // Add blank line after every groupSize lines (but not after the last line)
-    if(groupSize > 0 && (index + 1) % groupSize === 0 && index < cleaned.length - 1){
-      allLines.push('');
-    }
-  });
-
-  // Trim to fit within MAX_CHARS, removing lines from the end
-  let finalLines = [];
-  let currentLength = 0;
-  
-  for(let i = 0; i < allLines.length; i++){
-    const lineWithNewline = allLines[i] + (i < allLines.length - 1 ? '\n' : '');
-    if(currentLength + lineWithNewline.length <= MAX_CHARS){
-      finalLines.push(allLines[i]);
-      currentLength += lineWithNewline.length;
-    } else {
-      break;
-    }
-  }
-
-  const plainOut = finalLines.join('\n');
-  const htmlOut = finalLines.join('<br>');
-
-  return { htmlOut, plainOut, charCount: plainOut.length };
-}
-
-function updateOutput(){
-  const rawLines = inputBox.value.split(/\r?\n/);
-  const style = styleOption.value;
-  const repetitionOption = spaceOption.value;
-
-  const { htmlOut, plainOut, charCount: count } = buildOutput(rawLines, repetitionOption, style);
-  outputDiv.innerHTML = htmlOut;
-  outputDiv.dataset.plain = plainOut;
-
-  // Update character count display
-  if(count > 0){
-    const isAtLimit = count >= MAX_CHARS;
-    charCount.innerHTML = isAtLimit 
-      ? `<span class="char-limit">${count} / ${MAX_CHARS} characters (at limit)</span>`
-      : `${count} / ${MAX_CHARS} characters`;
-    charCount.style.display = 'block';
-  } else {
-    charCount.style.display = 'none';
-  }
-
-  if(htmlOut) copyBtn.style.display = 'inline-block';
-  else copyBtn.style.display = 'none';
-}
-
-// Live updates on input and option change
-inputBox.addEventListener('input', updateOutput);
-styleOption.addEventListener('change', updateOutput);
-spaceOption.addEventListener('change', updateOutput);
-
-// Copy button
-copyBtn.addEventListener('click', ()=>{
-  const text = outputDiv.dataset.plain || '';
-  navigator.clipboard.writeText(text).then(()=>{
-    copyBtn.innerText='COPIED!';
-    setTimeout(()=>copyBtn.innerText='COPY',1200);
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.card').forEach(card => hide(card));
+    show(el(target));
   });
 });
 
-// Initialize
-updateOutput();
+// Highlight & Spacing Tool
+function processHighlight(text, style, spacing) {
+  const lines = text.split('\n').filter(l => l.trim());
+  const processed = [];
+  
+  let previousDigits = null;
+  const spacingNum = parseInt(spacing);
+  
+  lines.forEach((line, lineIndex) => {
+    let digits = line.replace(/[^0-9]/g, '').split('');
+    if (digits.length === 0) return;
+    
+    let result;
+    
+    // First row is always plain (no formatting)
+    if (style === 'none' || lineIndex === 0) {
+      result = digits.join(',');
+    } else {
+      // Smart highlighting: only highlight changed digits
+      result = digits.map((d, idx) => {
+        const shouldHighlight = !previousDigits || previousDigits[idx] !== d;
+        
+        if (shouldHighlight) {
+          if (style === 'bold') {
+            return `**${d}**`;
+          } else if (style === 'underline') {
+            return `__${d}__`;
+          }
+        }
+        return d;
+      }).join(',');
+    }
+    
+    previousDigits = digits;
+    processed.push(result);
+    
+    // Add blank line after every 'spacing' number of codes (but not after the last one)
+    if (spacingNum > 0 && (lineIndex + 1) % spacingNum === 0 && lineIndex < lines.length - 1) {
+      processed.push('');
+    }
+  });
+  
+  return processed.join('\n');
+}
 
-// TAB 2: Code Generator
-const numbersInput = document.getElementById('numbersInput');
-const digitAmount = document.getElementById('digitAmount');
-const startingNumber = document.getElementById('startingNumber');
-const output2 = document.getElementById('output2');
-const copyBtn2 = document.getElementById('copyBtn2');
-const comboCount = document.getElementById('comboCount');
+function updateHighlighter() {
+  const input = el('inputBox').value;
+  const style = el('styleOption').value;
+  const spacing = el('spaceOption').value;
+  
+  const output = processHighlight(input, style, spacing);
+  el('output').textContent = output;
+  el('charCount').textContent = `${output.length} characters`;
+}
 
-function generateCombinations() {
-  const numbersText = numbersInput.value.trim();
-  const digits = digitAmount.value;
-  const startNum = startingNumber.value.trim();
-  
-  if (!numbersText || !digits) {
-    alert('Please enter both numbers and digit amount');
+el('inputBox').addEventListener('input', updateHighlighter);
+el('styleOption').addEventListener('change', updateHighlighter);
+el('spaceOption').addEventListener('change', updateHighlighter);
+
+el('copyBtn').addEventListener('click', async () => {
+  const text = el('output').textContent;
+  if (!text || text.trim() === '') {
+    alert('Nothing to copy');
     return;
   }
   
-  // Parse numbers from input
-  const numbers = numbersText.split(',').map(n => n.trim()).filter(n => n !== '');
-  const digitCount = parseInt(digits);
-  
-  if (numbers.length === 0) {
-    alert('Please enter valid numbers');
-    return;
+  try {
+    // Try modern clipboard API first
+    await navigator.clipboard.writeText(text);
+    el('copyBtn').textContent = 'COPIED!';
+    setTimeout(() => { el('copyBtn').textContent = 'COPY'; }, 2000);
+  } catch (err) {
+    // Fallback for older browsers or permission issues
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      el('copyBtn').textContent = 'COPIED!';
+      setTimeout(() => { el('copyBtn').textContent = 'COPY'; }, 2000);
+    } catch (e) {
+      alert('Copy failed. Please copy manually.');
+    }
+    document.body.removeChild(textarea);
   }
-  
-  // Validate starting number if provided
-  if (startNum && !numbers.includes(startNum)) {
-    alert('Starting number must be one of the numbers in the sequence');
-    return;
-  }
-  
-  if (digitCount < numbers.length) {
-    alert(`Digit amount must be at least ${numbers.length} to include all numbers`);
-    return;
-  }
-  
-  if (digitCount > 10) {
-    alert('Digit amount must be 10 or less');
-    return;
-  }
-  
-  // Generate all combinations that contain ALL numbers at least once
-  const combinations = new Set();
+});
+
+// Vault Generator
+function generateCombinations(numbers, digitAmount, startingNumber = null) {
+  const results = [];
   
   function generate(current) {
-    if (current.length === digitCount) {
-      // Check if all numbers are present in the combination
-      const hasAll = numbers.every(num => current.includes(num));
-      if (hasAll) {
-        // Check starting number filter if specified
-        if (!startNum || current[0] === startNum) {
-          combinations.add(current.join(''));
-        }
+    if (current.length === digitAmount) {
+      // Check if all numbers from the sequence appear in the combination
+      const hasAllNumbers = numbers.every(num => current.includes(num));
+      if (hasAllNumbers) {
+        results.push(current.join(''));
       }
       return;
     }
     
     for (let num of numbers) {
-      generate([...current, num]);
+      if (current.length === 0 && startingNumber !== null) {
+        if (num === startingNumber) {
+          generate([...current, num]);
+        }
+      } else {
+        generate([...current, num]);
+      }
     }
   }
   
   generate([]);
-  
-  // Display results
-  const combosArray = Array.from(combinations).sort();
-  const outputText = combosArray.join('\n');
-  output2.textContent = outputText;
-  output2.dataset.plain = outputText;
-  
-  // Update count
-  const startText = startNum ? ` starting with ${startNum}` : '';
-  comboCount.textContent = `${combosArray.length} combinations${startText}`;
-  comboCount.style.display = 'block';
-  
-  // Show copy button
-  copyBtn2.style.display = 'inline-block';
+  return results;
 }
 
-// Copy button for generator
-copyBtn2.addEventListener('click', ()=>{
-  const text = output2.dataset.plain || '';
-  navigator.clipboard.writeText(text).then(()=>{
-    copyBtn2.innerText='COPIED!';
-    setTimeout(()=>copyBtn2.innerText='COPY',1200);
+el('genBtn').addEventListener('click', () => {
+  const numbersStr = el('numbersInput').value.trim();
+  const digitAmount = parseInt(el('digitAmount').value);
+  const startingStr = el('startingNumber').value.trim();
+  
+  if (!numbersStr) {
+    alert('Please enter numbers in sequence');
+    return;
+  }
+  
+  const numbers = numbersStr.split(',').map(n => n.trim());
+  const startingNumber = startingStr ? startingStr : null;
+  
+  const combinations = generateCombinations(numbers, digitAmount, startingNumber);
+  lastGeneratedCodes = combinations;
+  
+  const output = combinations.join('\n');
+  el('output2').textContent = output;
+  el('comboCount').textContent = `${combinations.length.toLocaleString()} combinations generated`;
+  show(el('copyBtn2'));
+});
+
+el('copyBtn2').addEventListener('click', async () => {
+  const text = el('output2').textContent;
+  if (!text || text.trim() === '') {
+    alert('Nothing to copy');
+    return;
+  }
+  
+  try {
+    // Try modern clipboard API first
+    await navigator.clipboard.writeText(text);
+    el('copyBtn2').textContent = 'COPIED!';
+    setTimeout(() => { el('copyBtn2').textContent = 'COPY'; }, 2000);
+  } catch (err) {
+    // Fallback for older browsers or permission issues
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      el('copyBtn2').textContent = 'COPIED!';
+      setTimeout(() => { el('copyBtn2').textContent = 'COPY'; }, 2000);
+    } catch (e) {
+      alert('Copy failed. Please copy manually.');
+    }
+    document.body.removeChild(textarea);
+  }
+});
+
+el('proposeVaultBtn').addEventListener('click', () => {
+  if (lastGeneratedCodes.length === 0) {
+    alert('Please generate combinations first');
+    return;
+  }
+  openModal('proposeVaultModal');
+});
+
+function closeProposeVaultModal() { closeModal('proposeVaultModal'); }
+window.closeProposeVaultModal = closeProposeVaultModal;
+
+el('confirmProposeVault').addEventListener('click', async () => {
+  const title = el('vaultTitle').value.trim();
+  const reward = el('vaultReward').value.trim();
+  const err = el('proposeVaultError');
+  
+  if (!title || !reward) {
+    err.style.display = 'block';
+    err.textContent = 'Please fill in all fields';
+    return;
+  }
+  
+  if (lastGeneratedCodes.length === 0) {
+    err.style.display = 'block';
+    err.textContent = 'No codes generated';
+    return;
+  }
+  
+  const numbersStr = el('numbersInput').value.trim();
+  const digitAmount = el('digitAmount').value;
+  
+  db.proposedVault = {
+    title,
+    reward,
+    numbersInSequence: numbersStr,
+    digitAmount: digitAmount,
+    codes: lastGeneratedCodes
+  };
+  db.proposedBy = currentUser;
+  db.vaultConfirmations = {};
+  
+  await saveVaultDB();
+  addActivityLog('Proposed Vault', `${title} with ${lastGeneratedCodes.length} codes`);
+  
+  closeProposeVaultModal();
+  alert('Vault proposal submitted! Requires 2 confirmations.');
+  refreshVerifyTab();
+  refreshStatus();
+});
+
+// Pull Codes functionality
+el('pullBtn').addEventListener('click', async () => {
+  const username = el('pull-username').value.trim();
+  const amount = parseInt(el('pull-amount').value);
+  const startDigit = el('pull-start').value.trim();
+  const highlight = el('pull-highlight').value;
+  const spacing = parseInt(el('pull-spacing').value);
+  
+  if (!username) {
+    alert('Please enter a username');
+    return;
+  }
+  
+  if (!amount || amount < 1 || amount > 100) {
+    alert('Amount must be between 1-100');
+    return;
+  }
+  
+  let availableCodes = db.unverified.filter(code => {
+    if (startDigit) {
+      return code[0] === startDigit;
+    }
+    return true;
+  });
+  
+  if (availableCodes.length === 0) {
+    alert('No unverified codes available');
+    return;
+  }
+  
+  const codesToPull = availableCodes.slice(0, Math.min(amount, availableCodes.length));
+  
+  if (!db.userPulledCodes[username]) {
+    db.userPulledCodes[username] = [];
+  }
+  
+  db.userPulledCodes[username].push(...codesToPull.map(c => ({ code: c, timestamp: Date.now() })));
+  db.unverified = db.unverified.filter(c => !codesToPull.includes(c));
+  
+  await saveVaultDB();
+  
+  let previousDigits = null;
+  const spacingNum = parseInt(spacing);
+  const formatted = [];
+  
+  codesToPull.forEach((code, index) => {
+    let digits = code.split('');
+    let result;
+    
+    // First code is always plain (no formatting)
+    if (highlight === 'none' || index === 0) {
+      result = digits.join(',');
+    } else {
+      result = digits.map((d, idx) => {
+        const shouldHighlight = !previousDigits || previousDigits[idx] !== d;
+        
+        if (shouldHighlight) {
+          if (highlight === 'bold') {
+            return `**${d}**`;
+          } else if (highlight === 'underline') {
+            return `__${d}__`;
+          }
+        }
+        return d;
+      }).join(',');
+    }
+    
+    previousDigits = digits;
+    formatted.push(result);
+    
+    // Add blank line after every 'spacing' number of codes (but not after the last one)
+    if (spacingNum > 0 && (index + 1) % spacingNum === 0 && index < codesToPull.length - 1) {
+      formatted.push('');
+    }
+  });
+  
+  const output = formatted.join('\n');
+  
+  el('pulled-output').value = output;
+  el('pull-char-count').textContent = `${output.length} / 2,000 Characters`;
+  show(el('copyPulled'));
+  
+  addActivityLog('Pulled Codes', `${username} pulled ${codesToPull.length} codes`);
+  refreshStatus();
+  populateUserSelect();
+});
+
+el('copyPulled').addEventListener('click', () => {
+  const text = el('pulled-output').value;
+  navigator.clipboard.writeText(text).then(() => {
+    el('copyPulled').textContent = 'COPIED!';
+    setTimeout(() => { el('copyPulled').textContent = 'Copy'; }, 2000);
   });
 });
-</script>
 
+// Search Code
+el('searchCodeBtn').addEventListener('click', () => {
+  const input = el('search-code-input').value.trim();
+  const searchCode = input.replace(/[^0-9]/g, '');
+  
+  const resultDiv = el('search-result');
+  
+  if (db.unverified.includes(searchCode)) {
+    resultDiv.innerHTML = '<strong>Status:</strong> Unverified (Available)';
+    resultDiv.style.color = 'var(--accent)';
+  } else if (db.verified.includes(searchCode)) {
+    resultDiv.innerHTML = '<strong>Status:</strong> Verified';
+    resultDiv.style.color = 'var(--success)';
+  } else {
+    let found = false;
+    for (let user in db.userPulledCodes) {
+      if (db.userPulledCodes[user].find(c => c.code === searchCode)) {
+        resultDiv.innerHTML = `<strong>Status:</strong> Pulled by ${user}`;
+        resultDiv.style.color = 'var(--muted)';
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      resultDiv.innerHTML = '<strong>Status:</strong> Not found';
+      resultDiv.style.color = 'var(--danger)';
+    }
+  }
+  
+  show(resultDiv);
+});
+
+// User selection and verification
+function populateUserSelect() {
+  const select = el('user-select');
+  select.innerHTML = '<option value="">Select a user...</option>';
+  
+  for (let username in db.userPulledCodes) {
+    if (db.userPulledCodes[username].length > 0) {
+      const opt = document.createElement('option');
+      opt.value = username;
+      opt.textContent = `${username} (${db.userPulledCodes[username].length} codes)`;
+      select.appendChild(opt);
+    }
+  }
+}
+
+el('user-select').addEventListener('change', () => {
+  const username = el('user-select').value;
+  if (username) {
+    show(el('user-codes-section'));
+    el('selected-username').textContent = username;
+    renderUserCodes(username);
+  } else {
+    hide(el('user-codes-section'));
+  }
+});
+
+function renderUserCodes(username) {
+  const codes = db.userPulledCodes[username] || [];
+  const verifiedCount = db.userVerifiedHistory[username] ? db.userVerifiedHistory[username].length : 0;
+  
+  el('user-verified-count').textContent = verifiedCount;
+  
+  const list = el('user-codes-list');
+  list.innerHTML = '';
+  
+  const start = (currentUnverifiedPage - 1) * ITEMS_PER_PAGE;
+  const end = start + ITEMS_PER_PAGE;
+  const pageCodes = codes.slice(start, end);
+  
+  pageCodes.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.style.marginBottom = '8px';
+    div.style.padding = '12px';
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <strong>${item.code.split('').join(', ')}</strong>
+          <div class="small">${new Date(item.timestamp).toLocaleString()}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn small" onclick="verifyCode('${username}', '${item.code}')">Verify</button>
+          <button class="btn ghost small" onclick="redistributeCode('${username}', '${item.code}')">Redistribute</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+  
+  renderPagination('unverified', codes.length);
+  renderVerifiedHistory(username);
+}
+
+function renderVerifiedHistory(username) {
+  const verified = db.userVerifiedHistory[username] || [];
+  filteredVerifiedCodes = verified;
+  
+  const list = el('user-verified-list');
+  list.innerHTML = '';
+  
+  const start = (currentVerifiedPage - 1) * ITEMS_PER_PAGE;
+  const end = start + ITEMS_PER_PAGE;
+  const pageCodes = verified.slice(start, end);
+  
+  pageCodes.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'activity-log';
+    div.innerHTML = `
+      <strong>${item.code.split('').join(', ')}</strong>
+      <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+    `;
+    list.appendChild(div);
+  });
+  
+  renderPagination('verified', verified.length);
+}
+
+function renderPagination(type, total) {
+  const pages = Math.ceil(total / ITEMS_PER_PAGE);
+  const currentPage = type === 'unverified' ? currentUnverifiedPage : currentVerifiedPage;
+  const container = type === 'unverified' ? el('unverified-pagination') : el('verified-pagination');
+  
+  container.innerHTML = '';
+  
+  if (pages <= 1) return;
+  
+  for (let i = 1; i <= pages; i++) {
+    const btn = document.createElement('button');
+    btn.className = i === currentPage ? 'btn small' : 'btn ghost small';
+    btn.textContent = i;
+    btn.onclick = () => {
+      if (type === 'unverified') {
+        currentUnverifiedPage = i;
+        renderUserCodes(el('user-select').value);
+      } else {
+        currentVerifiedPage = i;
+        renderVerifiedHistory(el('user-select').value);
+      }
+    };
+    container.appendChild(btn);
+  }
+}
+
+window.verifyCode = async function(username, code) {
+  db.userPulledCodes[username] = db.userPulledCodes[username].filter(c => c.code !== code);
+  db.verified.push(code);
+  
+  if (!db.userVerifiedHistory[username]) {
+    db.userVerifiedHistory[username] = [];
+  }
+  db.userVerifiedHistory[username].push({ code, timestamp: Date.now() });
+  
+  await saveVaultDB();
+  addActivityLog('Verified Code', `${username}: ${code}`);
+  renderUserCodes(username);
+  refreshStatus();
+  populateUserSelect();
+};
+
+window.redistributeCode = async function(username, code) {
+  db.userPulledCodes[username] = db.userPulledCodes[username].filter(c => c.code !== code);
+  db.unverified.push(code);
+  
+  await saveVaultDB();
+  addActivityLog('Redistributed Code', `${username}: ${code}`);
+  renderUserCodes(username);
+  refreshStatus();
+  populateUserSelect();
+};
+
+el('verifyAllBtn').addEventListener('click', async () => {
+  const username = el('user-select').value;
+  if (!username) return;
+  
+  if (confirm(`Verify all codes for ${username}?`)) {
+    const codes = db.userPulledCodes[username] || [];
+    
+    codes.forEach(item => {
+      db.verified.push(item.code);
+      if (!db.userVerifiedHistory[username]) {
+        db.userVerifiedHistory[username] = [];
+      }
+      db.userVerifiedHistory[username].push({ code: item.code, timestamp: Date.now() });
+    });
+    
+    db.userPulledCodes[username] = [];
+    
+    await saveVaultDB();
+    addActivityLog('Verified All', `${username}: ${codes.length} codes`);
+    renderUserCodes(username);
+    refreshStatus();
+    populateUserSelect();
+  }
+});
+
+el('redistributeAllBtn').addEventListener('click', async () => {
+  const username = el('user-select').value;
+  if (!username) return;
+  
+  if (confirm(`Redistribute all codes for ${username}?`)) {
+    const codes = db.userPulledCodes[username] || [];
+    
+    codes.forEach(item => {
+      db.unverified.push(item.code);
+    });
+    
+    db.userPulledCodes[username] = [];
+    
+    await saveVaultDB();
+    addActivityLog('Redistributed All', `${username}: ${codes.length} codes`);
+    renderUserCodes(username);
+    refreshStatus();
+    populateUserSelect();
+  }
+});
+
+el('code-search').addEventListener('input', () => {
+  const search = el('code-search').value.toLowerCase();
+  const username = el('user-select').value;
+  
+  if (search && db.userVerifiedHistory[username]) {
+    filteredVerifiedCodes = db.userVerifiedHistory[username].filter(item => 
+      item.code.includes(search)
+    );
+  } else {
+    filteredVerifiedCodes = db.userVerifiedHistory[username] || [];
+  }
+  
+  currentVerifiedPage = 1;
+  renderVerifiedHistory(username);
+});
+
+// Activity Logs
+function addActivityLog(action, details) {
+  db.activityLogs.unshift({
+    action,
+    details,
+    user: currentUser,
+    timestamp: Date.now()
+  });
+  
+  if (db.activityLogs.length > 500) {
+    db.activityLogs = db.activityLogs.slice(0, 500);
+  }
+  
+  saveVaultDB();
+  renderActivityLogs();
+}
+
+function renderActivityLogs() {
+  const list = el('activity-logs-list');
+  list.innerHTML = '';
+  
+  const logs = filteredLogs.length > 0 ? filteredLogs : db.activityLogs;
+  
+  const start = (currentLogsPage - 1) * ITEMS_PER_PAGE;
+  const end = start + ITEMS_PER_PAGE;
+  const pageLogs = logs.slice(start, end);
+  
+  pageLogs.forEach(log => {
+    const div = document.createElement('div');
+    div.className = 'activity-log';
+    div.innerHTML = `
+      <strong>${log.action}:</strong> ${log.details}
+      <div class="timestamp">${log.user} • ${new Date(log.timestamp).toLocaleString()}</div>
+    `;
+    list.appendChild(div);
+  });
+  
+  renderLogsPagination(logs.length);
+}
+
+function renderLogsPagination(total) {
+  const pages = Math.ceil(total / ITEMS_PER_PAGE);
+  const container = el('logs-pagination');
+  
+  container.innerHTML = '';
+  
+  if (pages <= 1) return;
+  
+  for (let i = 1; i <= pages; i++) {
+    const btn = document.createElement('button');
+    btn.className = i === currentLogsPage ? 'btn small' : 'btn ghost small';
+    btn.textContent = i;
+    btn.onclick = () => {
+      currentLogsPage = i;
+      renderActivityLogs();
+    };
+    container.appendChild(btn);
+  }
+}
+
+el('log-search').addEventListener('input', () => {
+  const search = el('log-search').value.toLowerCase();
+  
+  if (search) {
+    filteredLogs = db.activityLogs.filter(log => 
+      log.action.toLowerCase().includes(search) ||
+      log.details.toLowerCase().includes(search) ||
+      log.user.toLowerCase().includes(search)
+    );
+  } else {
+    filteredLogs = [];
+  }
+  
+  currentLogsPage = 1;
+  renderActivityLogs();
+});
+
+el('clearLogsBtn').addEventListener('click', async () => {
+  if (confirm('Clear all activity logs?')) {
+    db.activityLogs = [];
+    await saveVaultDB();
+    renderActivityLogs();
+  }
+});
+
+// Status refresh
+function refreshStatus() {
+  if (db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2) {
+    el('vault-title-display').textContent = db.proposedVault.title;
+    el('vault-reward-display').textContent = db.proposedVault.reward;
+  } else {
+    el('vault-title-display').textContent = 'No Active Vault';
+    el('vault-reward-display').textContent = '—';
+  }
+  
+  if (db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2) {
+    el('vault-code-display').textContent = db.correctCodeProposal.split('').join(', ');
+    show(el('vault-code-display'));
+  } else {
+    hide(el('vault-code-display'));
+  }
+  
+  const total = db.unverified.length + db.verified.length;
+  el('status-total').textContent = total.toLocaleString();
+  el('status-verified').textContent = db.verified.length.toLocaleString();
+  el('status-unverified').textContent = db.unverified.length.toLocaleString();
+}
+
+function refreshVerifyTab() {
+  if(db.proposedVault && db.proposedBy) {
+    const confirmationCount = Object.keys(db.vaultConfirmations || {}).length;
+    
+    if(confirmationCount < 2) {
+      show(el('proposed-vault-section'));
+      
+      el('pv-proposer').innerText = db.proposedBy;
+      el('pv-proposer-role').innerText = `(${getRoleDisplayName(users[db.proposedBy]?.role || 'unknown')})`;
+      el('pv-title').innerText = db.proposedVault.title;
+      el('pv-reward').innerText = db.proposedVault.reward;
+      el('pv-numbers').innerText = db.proposedVault.numbersInSequence;
+      el('pv-digits').innerText = db.proposedVault.digitAmount;
+      el('pv-total').innerText = db.proposedVault.codes.length.toLocaleString();
+      el('pv-confirmations').innerText = `${confirmationCount}/2`;
+      
+      const confirmedBy = Object.keys(db.vaultConfirmations || {});
+      if(confirmedBy.length > 0) {
+        el('pv-confirmed-by').innerText = '✓ Confirmed by: ' + confirmedBy.join(', ');
+      } else {
+        el('pv-confirmed-by').innerText = '';
+      }
+      
+      const hasConfirmed = db.vaultConfirmations[currentUser];
+      const isProposer = db.proposedBy === currentUser;
+      
+      el('confirmVaultBtn').disabled = hasConfirmed || isProposer;
+      el('denyVaultBtn').disabled = false;
+    } else {
+      hide(el('proposed-vault-section'));
+    }
+  } else {
+    hide(el('proposed-vault-section'));
+  }
+  
+  if(db.correctCodeProposal && db.correctCodeProposedBy) {
+    const confirmationCount = Object.keys(db.correctCodeConfirmations || {}).length;
+    
+    if(confirmationCount < 2) {
+      show(el('correct-code-proposal'));
+      
+      el('cc-proposer').innerText = db.correctCodeProposedBy;
+      el('cc-proposer-role').innerText = `(${getRoleDisplayName(users[db.correctCodeProposedBy]?.role || 'unknown')})`;
+      el('cc-code').innerText = db.correctCodeProposal.split('').join(', ');
+      el('cc-confirmations').innerText = `${confirmationCount}/2`;
+      
+      const confirmedBy = Object.keys(db.correctCodeConfirmations || {});
+      if(confirmedBy.length > 0) {
+        el('cc-confirmed-by').innerText = '✓ Confirmed by: ' + confirmedBy.join(', ');
+      } else {
+        el('cc-confirmed-by').innerText = '';
+      }
+      
+      const hasConfirmed = db.correctCodeConfirmations[currentUser];
+      const isProposer = db.correctCodeProposedBy === currentUser;
+      
+      el('confirmCorrectCodeBtn').disabled = hasConfirmed || isProposer;
+      el('denyCorrectCodeBtn').disabled = false;
+    } else {
+      hide(el('correct-code-proposal'));
+    }
+  } else {
+    hide(el('correct-code-proposal'));
+  }
+}
+
+el('confirmVaultBtn').addEventListener('click', async () => {
+  if(!db.vaultConfirmations) db.vaultConfirmations = {};
+  
+  if(db.vaultConfirmations[currentUser]) {
+    alert('You have already confirmed this vault');
+    return;
+  }
+  
+  if(db.proposedBy === currentUser) {
+    alert('You cannot confirm your own proposal');
+    return;
+  }
+  
+  db.vaultConfirmations[currentUser] = true;
+  
+  const confirmationCount = Object.keys(db.vaultConfirmations).length;
+  
+  if(confirmationCount >= 2) {
+    db.unverified = [...db.proposedVault.codes];
+    db.verified = [];
+    db.userPulledCodes = {};
+    
+    addActivityLog('Confirmed Vault', `${db.proposedVault.title} activated`);
+    alert(`Vault "${db.proposedVault.title}" has been confirmed and activated!`);
+  } else {
+    addActivityLog('Confirmed Vault', `${db.proposedVault.title} (${confirmationCount}/2)`);
+    alert(`Vault confirmed! (${confirmationCount}/2 confirmations)`);
+  }
+  
+  await saveVaultDB();
+  refreshVerifyTab();
+  refreshStatus();
+});
+
+el('denyVaultBtn').addEventListener('click', async () => {
+  if(confirm('Are you sure you want to deny this vault proposal?')) {
+    const vaultTitle = db.proposedVault.title;
+    db.proposedVault = null;
+    db.proposedBy = null;
+    db.vaultConfirmations = {};
+    
+    await saveVaultDB();
+    addActivityLog('Denied Vault', vaultTitle);
+    refreshVerifyTab();
+    refreshStatus();
+    alert('Vault proposal has been denied');
+  }
+});
+
+el('confirmCorrectCodeBtn').addEventListener('click', async () => {
+  if(!db.correctCodeConfirmations) db.correctCodeConfirmations = {};
+  
+  if(db.correctCodeConfirmations[currentUser]) {
+    alert('You have already confirmed this correct code');
+    return;
+  }
+  
+  if(db.correctCodeProposedBy === currentUser) {
+    alert('You cannot confirm your own proposal');
+    return;
+  }
+  
+  db.correctCodeConfirmations[currentUser] = true;
+  
+  const confirmationCount = Object.keys(db.correctCodeConfirmations).length;
+  
+  if(confirmationCount >= 2) {
+    addActivityLog('Confirmed Correct Code', db.correctCodeProposal.split('').join(', '));
+    alert('Correct code has been confirmed and will now be displayed!');
+  } else {
+    alert(`Correct code confirmed! (${confirmationCount}/2 confirmations)`);
+  }
+  
+  await saveVaultDB();
+  refreshVerifyTab();
+  refreshStatus();
+});
+
+el('denyCorrectCodeBtn').addEventListener('click', async () => {
+  if(confirm('Are you sure you want to deny this correct code proposal?')) {
+    db.correctCodeProposal = null;
+    db.correctCodeProposedBy = null;
+    db.correctCodeConfirmations = {};
+    
+    await saveVaultDB();
+    addActivityLog('Denied Correct Code', 'Proposal denied');
+    refreshVerifyTab();
+    refreshStatus();
+    alert('Correct code proposal has been denied');
+  }
+});
+
+// Firebase functions
+async function saveVaultDB() {
+  try {
+    await database.ref('vault').set(db);
+  } catch (error) {
+    console.error('Error saving to Firebase:', error);
+  }
+}
+
+async function loadVaultDB() {
+  try {
+    const snapshot = await database.ref('vault').once('value');
+    if (snapshot.exists()) {
+      db = snapshot.val();
+    }
+  } catch (error) {
+    console.error('Error loading from Firebase:', error);
+  }
+}
+
+async function saveUsersToFirebase() {
+  try {
+    await database.ref('users').set(users);
+  } catch (error) {
+    console.error('Error saving users:', error);
+  }
+}
+
+async function loadUsersFromFirebase() {
+  try {
+    const snapshot = await database.ref('users').once('value');
+    if (snapshot.exists()) {
+      users = snapshot.val();
+    }
+  } catch (error) {
+    console.error('Error loading users:', error);
+  }
+}
+
+// Auth functions
+function updateUIForAuth(){ 
+  const ui = el('userInfo'); 
+  const account = el('accountBlock');
+  
+  if(currentUser){ 
+    hideLoginRequired();
+    ui.innerHTML = `<div><strong>${currentUser}</strong> <span class="small">(${getRoleDisplayName(currentUserRole)})</span></div>`; 
+    
+    const accountHTML = `<div><strong>${currentUser}</strong><div class='small'>Role: ${getRoleDisplayName(currentUserRole)}</div></div>`;
+    account.innerHTML = accountHTML;
+    
+    show(el('logoutBtn')); 
+    hide(el('loginBtn'));
+    
+    if(currentUserRole==='admin' || currentUserRole==='superadmin'){ 
+      show(el('adminPanel')); 
+      el('usersTab').classList.remove('hidden'); 
+    } else { 
+      hide(el('adminPanel')); 
+      el('usersTab').classList.add('hidden'); 
+    } 
+  } else { 
+    showLoginRequired();
+    ui.innerHTML = ``; 
+    account.innerHTML = '<p class="small">Not logged in</p>';
+    
+    show(el('loginBtn')); 
+    hide(el('logoutBtn'));
+    
+    hide(el('adminPanel')); 
+    el('usersTab').classList.add('hidden'); 
+  }
+}
+
+function getRoleDisplayName(role){ 
+  if(role==='superadmin') return 'Admin'; 
+  if(role==='admin') return 'Vault Admin'; 
+  if(role==='monkey') return 'Vault Monkey'; 
+  return role; 
+}
+
+function openLoginModal(){ openModal('loginModal'); }
+function closeLoginModal(){ closeModal('loginModal'); }
+
+el('confirmLogin').addEventListener('click', ()=>{
+  const u = el('loginUsername').value.trim(); 
+  const p = el('loginPassword').value;
+  if(users[u] && users[u].password===p){ 
+    currentUser = u; 
+    currentUserRole = users[u].role; 
+    sessionStorage.setItem('vaultUser', u); 
+    closeLoginModal(); 
+    updateUIForAuth();
+    refreshVerifyTab();
+    addActivityLog('User Login', `${u} logged in`);
+    el('loginError').style.display='none';
+  } else { 
+    el('loginError').style.display='block'; 
+    el('loginError').innerText='Invalid username or password'; 
+  }
+});
+
+el('loginBtn').addEventListener('click', openLoginModal);
+el('logoutBtn').addEventListener('click', ()=>{ 
+  addActivityLog('User Logout', `${currentUser} logged out`);
+  currentUser=null; 
+  currentUserRole=null; 
+  sessionStorage.removeItem('vaultUser'); 
+  updateUIForAuth(); 
+  showLoginRequired(); 
+});
+
+function showLoginRequired(){ 
+  document.body.classList.add('locked'); 
+  if(!el('lockMsg')){ 
+    const lock = document.createElement('div'); 
+    lock.id='lockMsg'; 
+    lock.className='lock-message'; 
+    lock.innerHTML=`<h2>🔒 Login Required</h2><p>Please login to access Vault Tool</p><button class='btn' onclick='openLoginModal()' style='margin-top:16px'>Login</button>`; 
+    document.body.appendChild(lock); 
+  } 
+}
+
+function hideLoginRequired(){
+  document.body.classList.remove('locked');
+  const lock = el('lockMsg');
+  if(lock) lock.remove();
+}
+
+function canEditUser(targetUsername){ 
+  const targetRole = users[targetUsername].role; 
+  if(currentUserRole==='superadmin') return true; 
+  if(currentUserRole==='admin') return targetRole==='monkey' || targetUsername===currentUser; 
+  return false; 
+}
+
+function canDeleteUser(targetUsername){ 
+  if(targetUsername===currentUser) return false; 
+  const targetRole = users[targetUsername].role; 
+  if(currentUserRole==='superadmin') return targetRole!=='superadmin'; 
+  if(currentUserRole==='admin') return targetRole==='monkey' || targetRole==='admin'; 
+  return false; 
+}
+
+function openUsersModal(){ openModal('usersModal'); renderUsersList(); }
+function closeUsersModal(){ closeModal('usersModal'); }
+window.showAddUserModal = showAddUserModal;
+window.closeUsersModal = closeUsersModal;
+window.closeAddUserModal = closeAddUserModal;
+window.deleteUser = deleteUser;
+window.changePassword = changePassword;
+window.editUser = editUser;
+
+el('openUsers').addEventListener('click', ()=>{ openUsersModal(); });
+
+function renderUsersList(){ 
+  const list = el('usersList'); 
+  list.innerHTML=''; 
+  Object.keys(users).forEach(username=>{
+    const user = users[username]; 
+    let roleClass = user.role==='superadmin'?'status-superadmin': user.role==='admin'?'status-admin':'status-monkey';
+    const canEdit = canEditUser(username); 
+    const canDelete = canDeleteUser(username);
+    const div = document.createElement('div'); 
+    div.className='card'; 
+    div.style.marginBottom='8px'; 
+    div.style.padding='12px'; 
+    div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><strong>${username}</strong><div class='small'>${getRoleDisplayName(user.role)}</div></div><div><span class='user-status ${roleClass}'>${getRoleDisplayName(user.role)}</span></div></div>`;
+    const actions = document.createElement('div'); 
+    actions.style.marginTop='8px';
+    actions.style.display='flex';
+    actions.style.gap='8px';
+    actions.style.flexWrap='wrap';
+    if(canEdit) actions.innerHTML += `<button class='btn small' onclick="changePassword('${username}')">Change PW</button> <button class='btn ghost small' onclick="editUser('${username}')">Edit</button>`; 
+    if(canDelete) actions.innerHTML += ` <button class='btn small' onclick="deleteUser('${username}')">Delete</button>`; 
+    div.appendChild(actions); 
+    list.appendChild(div);
+  }); 
+}
+
+function editUser(username){ 
+  const u = users[username]; 
+  el('userModalTitle').innerText = 'Edit User: '+username; 
+  el('newUsername').value = username; 
+  el('newPassword').value = u.password; 
+  el('newUserRole').value = u.role; 
+  openModal('addUserModal'); 
+}
+
+el('confirmAddUser').addEventListener('click', async ()=>{
+  const username = el('newUsername').value.trim(); 
+  const password = el('newPassword').value.trim(); 
+  const role = el('newUserRole').value; 
+  const err = el('addUserError'); 
+  err.style.display='none'; 
+  if(!username||!password){ err.style.display='block'; err.innerText='Username and password required'; return }
+  if(currentUserRole==='admin' && role==='superadmin'){ err.style.display='block'; err.innerText='Admins cannot create superadmin'; return }
+  
+  const isNewUser = !users[username];
+  users[username] = { password, role }; 
+  await saveUsersToFirebase();
+  
+  if(isNewUser) {
+    addActivityLog('Created User', `${username} as ${getRoleDisplayName(role)}`);
+  } else {
+    addActivityLog('Updated User', `${username}`);
+  }
+  
+  renderUsersList();
+  closeAddUserModal();
+});
+
+function showAddUserModal(){
+  el('userModalTitle').innerText='Add New User';
+  el('newUsername').value='';
+  el('newPassword').value='';
+  el('newUserRole').value='monkey';
+  openModal('addUserModal');
+}
+
+function closeAddUserModal(){ closeModal('addUserModal'); }
+
+function deleteUser(username){
+  if(!canDeleteUser(username)){ alert('No permission'); return }
+  if(confirm('Delete '+username+'?')){
+    delete users[username];
+    saveUsersToFirebase();
+    addActivityLog('Deleted User', username);
+    renderUsersList();
+  }
+}
+
+function changePassword(username){
+  if(!canEditUser(username)) return;
+  const pw = prompt('New password for '+username+':');
+  if(pw){
+    users[username].password = pw;
+    saveUsersToFirebase();
+    addActivityLog('Changed Password', `For user: ${username}`);
+    renderUsersList();
+    alert('Password changed')
+  }
+}
+
+async function checkAuth(){
+  await loadUsersFromFirebase();
+  await loadVaultDB();
+  if(!users.superadmin){
+    users.superadmin = { password:'super2024', role:'superadmin' };
+    await saveUsersToFirebase();
+  }
+  const saved = sessionStorage.getItem('vaultUser');
+  if(saved && users[saved]){
+    currentUser = saved;
+    currentUserRole = users[saved].role;
+    updateUIForAuth();
+  } else {
+    updateUIForAuth();
+    showLoginRequired();
+  }
+  refreshVerifyTab();
+  refreshStatus();
+  populateUserSelect();
+  renderActivityLogs();
+}
+
+checkAuth();
+</script>
 </body>
 </html>
