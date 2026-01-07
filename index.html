@@ -349,6 +349,15 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
 </div></div>
 
 <script>
+// Wait for Firebase to load
+(function() {
+  function initApp() {
+    if (typeof firebase === 'undefined') {
+      console.log('Waiting for Firebase to load...');
+      setTimeout(initApp, 100);
+      return;
+    }
+    
 const MAX_CHARS = 2000;
 const ITEMS_PER_PAGE = 50;
 
@@ -1229,8 +1238,27 @@ function setupRealtimeSync() {
   
   database.ref('users').on('value', snapshot => {
     if (snapshot.exists()) {
+      const oldUsers = users;
       users = snapshot.val();
+      
+      // If current user was deleted, log them out
+      if(currentUser && !users[currentUser]) {
+        currentUser = null;
+        currentUserRole = null;
+        sessionStorage.removeItem('vaultUser');
+        updateUIForAuth();
+        showLoginRequired();
+        return;
+      }
+      
+      // If current user's role changed, update it
+      if(currentUser && users[currentUser]) {
+        currentUserRole = users[currentUser].role;
+      }
+      
       updateUIForAuth();
+      
+      // Always re-render users list if modal is open
       if(el('usersModal').style.display === 'flex') {
         renderUsersList();
       }
@@ -1495,6 +1523,12 @@ if (document.readyState === 'loading') {
 } else {
   checkAuth();
 }
+
+  } // End of initApp
+  
+  // Start the initialization
+  initApp();
+})();
 </script>
 </body>
 </html>
