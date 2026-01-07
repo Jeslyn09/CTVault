@@ -1486,7 +1486,10 @@ window.changePassword = changePassword;
 
 async function checkAuth(){
   try {
-    // Load data from Firebase FIRST
+    // Check session storage FIRST
+    const saved = sessionStorage.getItem('vaultUser');
+    
+    // Load data from Firebase
     await loadUsersFromFirebase();
     
     const vaultSnapshot = await database.ref('vault').once('value');
@@ -1501,13 +1504,14 @@ async function checkAuth(){
       await saveUsersToFirebase();
     }
     
-    // Check session storage
-    const saved = sessionStorage.getItem('vaultUser');
+    // Validate session after users are loaded
     if(saved && users[saved]){
       currentUser = saved;
       currentUserRole = users[saved].role;
       updateUIForAuth(false); // Don't show lock screen
     } else {
+      // Clear invalid session
+      if(saved) sessionStorage.removeItem('vaultUser');
       updateUIForAuth(true); // Show lock screen only if no valid session
     }
     
