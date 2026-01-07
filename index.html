@@ -1302,10 +1302,9 @@ function updateUIForAuth(showLockIfNeeded = true){
         currentUser=null; 
         currentUserRole=null; 
         sessionStorage.removeItem('vaultUser'); 
-        updateUIForAuth(); 
-        showLoginRequired(); 
-      });
-    }
+        updateUIForAuth(true); 
+     });
+   }
     
     const accountHTML = `<div><strong>${currentUser}</strong><div class='small'>Role: ${getRoleDisplayName(currentUserRole)}</div></div>`;
     account.innerHTML = accountHTML;
@@ -1366,8 +1365,7 @@ el('logoutBtn').addEventListener('click', ()=>{
   currentUser=null; 
   currentUserRole=null; 
   sessionStorage.removeItem('vaultUser'); 
-  updateUIForAuth(); 
-  showLoginRequired(); 
+  updateUIForAuth(true); // <-- FIX: Add the parameter!
 });
 
 function showLoginRequired(){ 
