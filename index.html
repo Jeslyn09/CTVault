@@ -1286,7 +1286,7 @@ async function loadUsersFromFirebase() {
   }
 }
 
-function updateUIForAuth(){ 
+function updateUIForAuth(showLockIfNeeded = true){
   const ui = el('userInfo'); 
   const account = el('accountBlock');
   
@@ -1320,8 +1320,10 @@ function updateUIForAuth(){
       hide(el('adminPanel')); 
       el('usersTab').classList.add('hidden'); 
     } 
-  } else { 
-    showLoginRequired();
+    } else {
+      if(showLockIfNeeded) {
+       showLoginRequired();
+    }
     ui.innerHTML = ``; 
     account.innerHTML = '<p class="small">Not logged in</p>';
     
