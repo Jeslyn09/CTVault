@@ -1263,7 +1263,20 @@ function updateUIForAuth(){
   
   if(currentUser){ 
     hideLoginRequired();
-    ui.innerHTML = `<div><strong>${currentUser}</strong> <span class="small">(${getRoleDisplayName(currentUserRole)})</span></div>`; 
+    ui.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div><strong>${currentUser}</strong> <span class="small">(${getRoleDisplayName(currentUserRole)})</span></div><button class="btn ghost" id="logoutBtn2">Logout</button></div>`; 
+    
+    // Add logout handler to the new button
+    const logoutBtn2 = el('logoutBtn2');
+    if(logoutBtn2) {
+      logoutBtn2.addEventListener('click', ()=>{ 
+        addActivityLog('User Logout', `${currentUser} logged out`);
+        currentUser=null; 
+        currentUserRole=null; 
+        sessionStorage.removeItem('vaultUser'); 
+        updateUIForAuth(); 
+        showLoginRequired(); 
+      });
+    }
     
     const accountHTML = `<div><strong>${currentUser}</strong><div class='small'>Role: ${getRoleDisplayName(currentUserRole)}</div></div>`;
     account.innerHTML = accountHTML;
@@ -1443,35 +1456,45 @@ function changePassword(username){
 window.changePassword = changePassword;
 
 async function checkAuth(){
-  await loadUsersFromFirebase();
-  
-  const vaultSnapshot = await database.ref('vault').once('value');
-  if (vaultSnapshot.exists()) {
-    db = vaultSnapshot.val();
-  }
-  
-  setupRealtimeSync();
-  
-  if(!users.superadmin){
-    users.superadmin = { password:'super2024', role:'superadmin' };
-    await saveUsersToFirebase();
-  }
-  const saved = sessionStorage.getItem('vaultUser');
-  if(saved && users[saved]){
-    currentUser = saved;
-    currentUserRole = users[saved].role;
-    updateUIForAuth();
-  } else {
-    updateUIForAuth();
+  try {
+    await loadUsersFromFirebase();
+    
+    const vaultSnapshot = await database.ref('vault').once('value');
+    if (vaultSnapshot.exists()) {
+      db = vaultSnapshot.val();
+    }
+    
+    setupRealtimeSync();
+    
+    if(!users.superadmin){
+      users.superadmin = { password:'super2024', role:'superadmin' };
+      await saveUsersToFirebase();
+    }
+    const saved = sessionStorage.getItem('vaultUser');
+    if(saved && users[saved]){
+      currentUser = saved;
+      currentUserRole = users[saved].role;
+      updateUIForAuth();
+    } else {
+      updateUIForAuth();
+      showLoginRequired();
+    }
+    refreshVerifyTab();
+    refreshStatus();
+    populateUserSelect();
+    renderActivityLogs();
+  } catch(error) {
+    console.error('Auth error:', error);
     showLoginRequired();
   }
-  refreshVerifyTab();
-  refreshStatus();
-  populateUserSelect();
-  renderActivityLogs();
 }
 
-checkAuth();
+// Make sure DOM is loaded before running
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', checkAuth);
+} else {
+  checkAuth();
+}
 </script>
 </body>
 </html>
