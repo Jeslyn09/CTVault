@@ -1506,9 +1506,9 @@ async function checkAuth(){
     if(saved && users[saved]){
       currentUser = saved;
       currentUserRole = users[saved].role;
-      updateUIForAuth(false); // Don't show lock screen ✅
+      updateUIForAuth(false); // Don't show lock screen
     } else {
-      updateUIForAuth(true); // Show lock screen only if no valid session ✅
+      updateUIForAuth(true); // Show lock screen only if no valid session
     }
     
     refreshVerifyTab();
