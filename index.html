@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Vault Tool - Highlight · Generator · Admin</title>
+<title>Vault Tool</title>
 <style>
 :root{
   --bg:#0d0f12; --surface:#16191e; --surface-2:#1e2228; --muted:#a8a8a8; --text:#e6e6e6; --accent:#3d7afe; --accent-strong:#6a96ff; --danger:#ff4d4f; --success:#4caf50; --card-border:#24262b; --radius:12px;
@@ -41,6 +41,8 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
 .activity-log{background:var(--surface-2);padding:8px 12px;border-radius:8px;margin-bottom:8px;font-size:13px}
 .activity-log .timestamp{color:var(--muted);font-size:11px}
 .search-box{margin-bottom:16px;padding:12px;background:var(--surface-2);border-radius:8px}
+.sync-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:8px;background:var(--success);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 
 @media (max-width: 768px) {
   .header{padding:12px 16px}
@@ -60,7 +62,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
 <body>
 
 <header class="header">
-  <h1>Vault Tool</h1>
+  <h1>Vault Tool <span class="sync-indicator" id="syncIndicator" title="Synced"></span></h1>
   <div class="controls" id="userInfo"></div>
 </header>
 
@@ -388,6 +390,10 @@ let filteredVerifiedCodes = [];
 let filteredLogs = [];
 let lastGeneratedCodes = [];
 
+// Real-time sync listeners
+let vaultListener = null;
+let usersListener = null;
+
 // Helper functions
 function el(id) { return document.getElementById(id); }
 function show(element) { element.style.display = 'block'; }
@@ -420,11 +426,9 @@ function processHighlight(text, style, spacing) {
     
     let result;
     
-    // First row is always plain (no formatting)
     if (style === 'none' || lineIndex === 0) {
       result = digits.join(',');
     } else {
-      // Smart highlighting: only highlight changed digits
       result = digits.map((d, idx) => {
         const shouldHighlight = !previousDigits || previousDigits[idx] !== d;
         
@@ -442,7 +446,6 @@ function processHighlight(text, style, spacing) {
     previousDigits = digits;
     processed.push(result);
     
-    // Add blank line after every 'spacing' number of codes (but not after the last one)
     if (spacingNum > 0 && (lineIndex + 1) % spacingNum === 0 && lineIndex < lines.length - 1) {
       processed.push('');
     }
@@ -473,12 +476,10 @@ el('copyBtn').addEventListener('click', async () => {
   }
   
   try {
-    // Try modern clipboard API first
     await navigator.clipboard.writeText(text);
     el('copyBtn').textContent = 'COPIED!';
     setTimeout(() => { el('copyBtn').textContent = 'COPY'; }, 2000);
   } catch (err) {
-    // Fallback for older browsers or permission issues
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
@@ -502,7 +503,6 @@ function generateCombinations(numbers, digitAmount, startingNumber = null) {
   
   function generate(current) {
     if (current.length === digitAmount) {
-      // Check if all numbers from the sequence appear in the combination
       const hasAllNumbers = numbers.every(num => current.includes(num));
       if (hasAllNumbers) {
         results.push(current.join(''));
@@ -1232,15 +1232,26 @@ async function saveVaultDB() {
   }
 }
 
-async function loadVaultDB() {
-  try {
-    const snapshot = await database.ref('vault').once('value');
+// CORRECT (should be):
+function setupRealtimeSync() {
+  // Listen for vault data changes
+  database.ref('vault').on('value', snapshot => {
     if (snapshot.exists()) {
       db = snapshot.val();
+      refreshStatus();
+      refreshVerifyTab();
+      populateUserSelect();
+      renderActivityLogs();
     }
-  } catch (error) {
-    console.error('Error loading from Firebase:', error);
-  }
+  });
+  
+  // Listen for users data changes
+  database.ref('users').on('value', snapshot => {
+    if (snapshot.exists()) {
+      users = snapshot.val();
+      updateUIForAuth();
+    }
+  });
 }
 
 async function saveUsersToFirebase() {
@@ -1468,8 +1479,19 @@ function changePassword(username){
 }
 
 async function checkAuth(){
+  // First load initial data
   await loadUsersFromFirebase();
-  await loadVaultDB();
+  
+  // Load initial vault data
+  const vaultSnapshot = await database.ref('vault').once('value');
+  if (vaultSnapshot.exists()) {
+    db = vaultSnapshot.val();
+  }
+  
+  // NOW set up real-time listeners
+  setupRealtimeSync();
+  
+  // Rest of the auth check...
   if(!users.superadmin){
     users.superadmin = { password:'super2024', role:'superadmin' };
     await saveUsersToFirebase();
