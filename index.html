@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Vault Tool</title>
+<title>Vault Tool - Highlight · Generator · Admin</title>
 <style>
 :root{
   --bg:#0d0f12; --surface:#16191e; --surface-2:#1e2228; --muted:#a8a8a8; --text:#e6e6e6; --accent:#3d7afe; --accent-strong:#6a96ff; --danger:#ff4d4f; --success:#4caf50; --card-border:#24262b; --radius:12px;
@@ -34,9 +34,9 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
 .status-superadmin{background:#8b4cf6;color:white}
 .status-admin{background:#ff7b4d;color:white}
 .status-monkey{background:#49b56e;color:white}
-.modal{display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.modal{display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;padding:20px}
 .modal .modal-content{background:var(--surface-2);padding:20px;border-radius:12px;width:100%;max-width:480px;border:1px solid var(--card-border);max-height:90vh;overflow-y:auto}
-.lock-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;padding:32px;background:var(--surface);border-radius:12px;border:1px solid var(--card-border);color:var(--muted);z-index:999;min-width:320px;max-width:90%}
+.lock-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;padding:32px;background:var(--surface);border-radius:12px;border:1px solid var(--card-border);color:var(--muted);z-index:9999;min-width:320px;max-width:90%}
 .pagination{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:12px;flex-wrap:wrap}
 .activity-log{background:var(--surface-2);padding:8px 12px;border-radius:8px;margin-bottom:8px;font-size:13px}
 .activity-log .timestamp{color:var(--muted);font-size:11px}
@@ -57,7 +57,6 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -390,18 +389,34 @@ let filteredVerifiedCodes = [];
 let filteredLogs = [];
 let lastGeneratedCodes = [];
 
-// Real-time sync listeners
-let vaultListener = null;
-let usersListener = null;
-
-// Helper functions
 function el(id) { return document.getElementById(id); }
 function show(element) { element.style.display = 'block'; }
 function hide(element) { element.style.display = 'none'; }
 function openModal(id) { el(id).style.display = 'flex'; }
 function closeModal(id) { el(id).style.display = 'none'; }
 
-// Tab switching
+// Modal functions - exposed globally
+function openLoginModal(){ openModal('loginModal'); }
+function closeLoginModal(){ closeModal('loginModal'); }
+function closeProposeVaultModal() { closeModal('proposeVaultModal'); }
+function openUsersModal(){ openModal('usersModal'); renderUsersList(); }
+function closeUsersModal(){ closeModal('usersModal'); }
+function showAddUserModal(){
+  el('userModalTitle').innerText='Add New User';
+  el('newUsername').value='';
+  el('newPassword').value='';
+  el('newUserRole').value='monkey';
+  openModal('addUserModal');
+}
+function closeAddUserModal(){ closeModal('addUserModal'); }
+
+window.openLoginModal = openLoginModal;
+window.closeLoginModal = closeLoginModal;
+window.closeProposeVaultModal = closeProposeVaultModal;
+window.showAddUserModal = showAddUserModal;
+window.closeUsersModal = closeUsersModal;
+window.closeAddUserModal = closeAddUserModal;
+
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const target = tab.dataset.tab;
@@ -412,18 +427,15 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-// Highlight & Spacing Tool
 function processHighlight(text, style, spacing) {
   const lines = text.split('\n').filter(l => l.trim());
   const processed = [];
-  
   let previousDigits = null;
   const spacingNum = parseInt(spacing);
   
   lines.forEach((line, lineIndex) => {
     let digits = line.replace(/[^0-9]/g, '').split('');
     if (digits.length === 0) return;
-    
     let result;
     
     if (style === 'none' || lineIndex === 0) {
@@ -431,13 +443,9 @@ function processHighlight(text, style, spacing) {
     } else {
       result = digits.map((d, idx) => {
         const shouldHighlight = !previousDigits || previousDigits[idx] !== d;
-        
         if (shouldHighlight) {
-          if (style === 'bold') {
-            return `**${d}**`;
-          } else if (style === 'underline') {
-            return `__${d}__`;
-          }
+          if (style === 'bold') return `**${d}**`;
+          if (style === 'underline') return `__${d}__`;
         }
         return d;
       }).join(',');
@@ -458,7 +466,6 @@ function updateHighlighter() {
   const input = el('inputBox').value;
   const style = el('styleOption').value;
   const spacing = el('spaceOption').value;
-  
   const output = processHighlight(input, style, spacing);
   el('output').textContent = output;
   el('charCount').textContent = `${output.length} characters`;
@@ -497,30 +504,22 @@ el('copyBtn').addEventListener('click', async () => {
   }
 });
 
-// Vault Generator
 function generateCombinations(numbers, digitAmount, startingNumber = null) {
   const results = [];
-  
   function generate(current) {
     if (current.length === digitAmount) {
       const hasAllNumbers = numbers.every(num => current.includes(num));
-      if (hasAllNumbers) {
-        results.push(current.join(''));
-      }
+      if (hasAllNumbers) results.push(current.join(''));
       return;
     }
-    
     for (let num of numbers) {
       if (current.length === 0 && startingNumber !== null) {
-        if (num === startingNumber) {
-          generate([...current, num]);
-        }
+        if (num === startingNumber) generate([...current, num]);
       } else {
         generate([...current, num]);
       }
     }
   }
-  
   generate([]);
   return results;
 }
@@ -555,12 +554,10 @@ el('copyBtn2').addEventListener('click', async () => {
   }
   
   try {
-    // Try modern clipboard API first
     await navigator.clipboard.writeText(text);
     el('copyBtn2').textContent = 'COPIED!';
     setTimeout(() => { el('copyBtn2').textContent = 'COPY'; }, 2000);
   } catch (err) {
-    // Fallback for older browsers or permission issues
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
@@ -585,9 +582,6 @@ el('proposeVaultBtn').addEventListener('click', () => {
   }
   openModal('proposeVaultModal');
 });
-
-function closeProposeVaultModal() { closeModal('proposeVaultModal'); }
-window.closeProposeVaultModal = closeProposeVaultModal;
 
 el('confirmProposeVault').addEventListener('click', async () => {
   const title = el('vaultTitle').value.trim();
@@ -628,7 +622,6 @@ el('confirmProposeVault').addEventListener('click', async () => {
   refreshStatus();
 });
 
-// Pull Codes functionality
 el('pullBtn').addEventListener('click', async () => {
   const username = el('pull-username').value.trim();
   const amount = parseInt(el('pull-amount').value);
@@ -647,9 +640,7 @@ el('pullBtn').addEventListener('click', async () => {
   }
   
   let availableCodes = db.unverified.filter(code => {
-    if (startDigit) {
-      return code[0] === startDigit;
-    }
+    if (startDigit) return code[0] === startDigit;
     return true;
   });
   
@@ -677,19 +668,14 @@ el('pullBtn').addEventListener('click', async () => {
     let digits = code.split('');
     let result;
     
-    // First code is always plain (no formatting)
     if (highlight === 'none' || index === 0) {
       result = digits.join(',');
     } else {
       result = digits.map((d, idx) => {
         const shouldHighlight = !previousDigits || previousDigits[idx] !== d;
-        
         if (shouldHighlight) {
-          if (highlight === 'bold') {
-            return `**${d}**`;
-          } else if (highlight === 'underline') {
-            return `__${d}__`;
-          }
+          if (highlight === 'bold') return `**${d}**`;
+          if (highlight === 'underline') return `__${d}__`;
         }
         return d;
       }).join(',');
@@ -698,7 +684,6 @@ el('pullBtn').addEventListener('click', async () => {
     previousDigits = digits;
     formatted.push(result);
     
-    // Add blank line after every 'spacing' number of codes (but not after the last one)
     if (spacingNum > 0 && (index + 1) % spacingNum === 0 && index < codesToPull.length - 1) {
       formatted.push('');
     }
@@ -723,7 +708,6 @@ el('copyPulled').addEventListener('click', () => {
   });
 });
 
-// Search Code
 el('searchCodeBtn').addEventListener('click', () => {
   const input = el('search-code-input').value.trim();
   const searchCode = input.replace(/[^0-9]/g, '');
@@ -755,7 +739,6 @@ el('searchCodeBtn').addEventListener('click', () => {
   show(resultDiv);
 });
 
-// User selection and verification
 function populateUserSelect() {
   const select = el('user-select');
   select.innerHTML = '<option value="">Select a user...</option>';
@@ -794,7 +777,7 @@ function renderUserCodes(username) {
   const end = start + ITEMS_PER_PAGE;
   const pageCodes = codes.slice(start, end);
   
-  pageCodes.forEach((item, idx) => {
+  pageCodes.forEach((item) => {
     const div = document.createElement('div');
     div.className = 'card';
     div.style.marginBottom = '8px';
@@ -957,7 +940,6 @@ el('code-search').addEventListener('input', () => {
   renderVerifiedHistory(username);
 });
 
-// Activity Logs
 function addActivityLog(action, details) {
   db.activityLogs.unshift({
     action,
@@ -1042,7 +1024,6 @@ el('clearLogsBtn').addEventListener('click', async () => {
   }
 });
 
-// Status refresh
 function refreshStatus() {
   if (db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2) {
     el('vault-title-display').textContent = db.proposedVault.title;
@@ -1223,7 +1204,6 @@ el('denyCorrectCodeBtn').addEventListener('click', async () => {
   }
 });
 
-// Firebase functions
 async function saveVaultDB() {
   try {
     await database.ref('vault').set(db);
@@ -1232,9 +1212,7 @@ async function saveVaultDB() {
   }
 }
 
-// CORRECT (should be):
 function setupRealtimeSync() {
-  // Listen for vault data changes
   database.ref('vault').on('value', snapshot => {
     if (snapshot.exists()) {
       db = snapshot.val();
@@ -1242,14 +1220,20 @@ function setupRealtimeSync() {
       refreshVerifyTab();
       populateUserSelect();
       renderActivityLogs();
+      const selectedUser = el('user-select').value;
+      if (selectedUser) {
+        renderUserCodes(selectedUser);
+      }
     }
   });
   
-  // Listen for users data changes
   database.ref('users').on('value', snapshot => {
     if (snapshot.exists()) {
       users = snapshot.val();
       updateUIForAuth();
+      if(el('usersModal').style.display === 'flex') {
+        renderUsersList();
+      }
     }
   });
 }
@@ -1273,7 +1257,6 @@ async function loadUsersFromFirebase() {
   }
 }
 
-// Auth functions
 function updateUIForAuth(){ 
   const ui = el('userInfo'); 
   const account = el('accountBlock');
@@ -1314,9 +1297,6 @@ function getRoleDisplayName(role){
   if(role==='monkey') return 'Vault Monkey'; 
   return role; 
 }
-
-function openLoginModal(){ openModal('loginModal'); }
-function closeLoginModal(){ closeModal('loginModal'); }
 
 el('confirmLogin').addEventListener('click', ()=>{
   const u = el('loginUsername').value.trim(); 
@@ -1378,15 +1358,6 @@ function canDeleteUser(targetUsername){
   return false; 
 }
 
-function openUsersModal(){ openModal('usersModal'); renderUsersList(); }
-function closeUsersModal(){ closeModal('usersModal'); }
-window.showAddUserModal = showAddUserModal;
-window.closeUsersModal = closeUsersModal;
-window.closeAddUserModal = closeAddUserModal;
-window.deleteUser = deleteUser;
-window.changePassword = changePassword;
-window.editUser = editUser;
-
 el('openUsers').addEventListener('click', ()=>{ openUsersModal(); });
 
 function renderUsersList(){ 
@@ -1422,6 +1393,7 @@ function editUser(username){
   el('newUserRole').value = u.role; 
   openModal('addUserModal'); 
 }
+window.editUser = editUser;
 
 el('confirmAddUser').addEventListener('click', async ()=>{
   const username = el('newUsername').value.trim(); 
@@ -1446,16 +1418,6 @@ el('confirmAddUser').addEventListener('click', async ()=>{
   closeAddUserModal();
 });
 
-function showAddUserModal(){
-  el('userModalTitle').innerText='Add New User';
-  el('newUsername').value='';
-  el('newPassword').value='';
-  el('newUserRole').value='monkey';
-  openModal('addUserModal');
-}
-
-function closeAddUserModal(){ closeModal('addUserModal'); }
-
 function deleteUser(username){
   if(!canDeleteUser(username)){ alert('No permission'); return }
   if(confirm('Delete '+username+'?')){
@@ -1465,6 +1427,7 @@ function deleteUser(username){
     renderUsersList();
   }
 }
+window.deleteUser = deleteUser;
 
 function changePassword(username){
   if(!canEditUser(username)) return;
@@ -1477,21 +1440,18 @@ function changePassword(username){
     alert('Password changed')
   }
 }
+window.changePassword = changePassword;
 
 async function checkAuth(){
-  // First load initial data
   await loadUsersFromFirebase();
   
-  // Load initial vault data
   const vaultSnapshot = await database.ref('vault').once('value');
   if (vaultSnapshot.exists()) {
     db = vaultSnapshot.val();
   }
   
-  // NOW set up real-time listeners
   setupRealtimeSync();
   
-  // Rest of the auth check...
   if(!users.superadmin){
     users.superadmin = { password:'super2024', role:'superadmin' };
     await saveUsersToFirebase();
