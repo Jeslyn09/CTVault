@@ -1320,9 +1320,9 @@ function updateUIForAuth(showLockIfNeeded = true){
       hide(el('adminPanel')); 
       el('usersTab').classList.add('hidden'); 
     } 
-    } else {
-      if(showLockIfNeeded) {
-       showLoginRequired();
+  } else {
+    if(showLockIfNeeded) {
+      showLoginRequired();
     }
     ui.innerHTML = ``; 
     account.innerHTML = '<p class="small">Not logged in</p>';
