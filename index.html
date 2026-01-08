@@ -584,14 +584,23 @@ el('copyBtn2').addEventListener('click', async () => {
   }
 });
 
+// In the el('proposeVaultBtn').addEventListener('click', ...) section:
 el('proposeVaultBtn').addEventListener('click', () => {
   if (lastGeneratedCodes.length === 0) {
     alert('Please generate combinations first');
     return;
   }
+  
+  // ADD THIS CHECK: Prevent proposal if a vault is already confirmed
+  if (db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2) {
+    alert('A vault is already active. Cannot propose a new vault until the current one is completed.');
+    return;
+  }
+  
   openModal('proposeVaultModal');
 });
 
+// Also add the same check in the el('confirmProposeVault').addEventListener section:
 el('confirmProposeVault').addEventListener('click', async () => {
   const title = el('vaultTitle').value.trim();
   const reward = el('vaultReward').value.trim();
@@ -606,6 +615,13 @@ el('confirmProposeVault').addEventListener('click', async () => {
   if (lastGeneratedCodes.length === 0) {
     err.style.display = 'block';
     err.textContent = 'No codes generated';
+    return;
+  }
+  
+  // ADD THIS CHECK: Double-check before saving
+  if (db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2) {
+    err.style.display = 'block';
+    err.textContent = 'A vault is already active. Cannot propose a new vault.';
     return;
   }
   
@@ -1066,6 +1082,8 @@ function refreshStatus() {
   el('status-verified').textContent = verified.length.toLocaleString();
   el('status-unverified').textContent = unverified.length.toLocaleString();
 
+  const vaultConfirmed = db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2;
+  el('proposeVaultBtn').disabled = vaultConfirmed;
   // Disable pull codes section if correct code is confirmed
   const correctCodeConfirmed = db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2;
   
