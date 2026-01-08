@@ -1034,7 +1034,12 @@ el('clearLogsBtn').addEventListener('click', async () => {
 });
 
 function refreshStatus() {
-  if (!db) return; // Add this safety check
+  // Safety check - if db doesn't exist yet, just return
+  if (!db) return;
+  
+  // Ensure arrays exist, use empty arrays as fallback
+  const unverified = db.unverified || [];
+  const verified = db.verified || [];
   
   if (db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2) {
     el('vault-title-display').textContent = db.proposedVault.title;
@@ -1051,10 +1056,10 @@ function refreshStatus() {
     hide(el('vault-code-display'));
   }
   
-  const total = db.unverified.length + db.verified.length;
+  const total = unverified.length + verified.length;
   el('status-total').textContent = total.toLocaleString();
-  el('status-verified').textContent = db.verified.length.toLocaleString();
-  el('status-unverified').textContent = db.unverified.length.toLocaleString();
+  el('status-verified').textContent = verified.length.toLocaleString();
+  el('status-unverified').textContent = unverified.length.toLocaleString();
 }
 
 function refreshVerifyTab() {
