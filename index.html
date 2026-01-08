@@ -238,6 +238,20 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
         </div>
       </div>
 
+      <div id="active-vault-controls" style="display:none;margin-bottom:20px;padding:16px;background:var(--surface-2);border-radius:8px;border:2px solid var(--success)">
+        <h3 style="margin:0 0 12px 0">Active Vault Controls</h3>
+        <div style="margin-bottom:8px">
+          <strong>Current Vault:</strong> <span id="active-vault-name"></span>
+       </div>
+       <div style="margin-bottom:12px">
+         <strong>Status:</strong> <span id="active-vault-status"></span>
+       </div>
+       <div style="display:flex;gap:8px;flex-wrap:wrap">
+         <button class="btn ghost" id="completeVaultBtn">Complete Vault (Not Cracked)</button>
+         <button class="btn" id="resetVaultBtn" style="background:var(--danger)">Reset Vault (Admin)</button>
+       </div>
+     </div>
+
       <h3>Search Code</h3>
       <div style="margin-bottom:16px">
         <input id="search-code-input" placeholder="Enter code to search (e.g., 0,0,2,3,4,5,6)" style="margin-bottom:8px" />
@@ -1084,6 +1098,7 @@ function refreshStatus() {
 
   const vaultConfirmed = db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2;
   el('proposeVaultBtn').disabled = vaultConfirmed;
+  
   // Disable pull codes section if correct code is confirmed
   const correctCodeConfirmed = db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2;
   
@@ -1102,8 +1117,42 @@ function refreshStatus() {
     el('pull-highlight').disabled = false;
     el('pull-spacing').disabled = false;
   }
+  
+  // Add this at the very end:
+  if (typeof refreshActiveVaultControls === 'function') {
+    refreshActiveVaultControls();
+  }
 }
 
+function refreshActiveVaultControls() {
+  const vaultConfirmed = db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2;
+  const correctCodeConfirmed = db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2;
+  
+  if (vaultConfirmed) {
+    show(el('active-vault-controls'));
+    el('active-vault-name').textContent = db.proposedVault.title;
+    
+    if (correctCodeConfirmed) {
+      el('active-vault-status').textContent = '✓ Cracked!';
+      el('active-vault-status').style.color = 'var(--success)';
+    } else {
+      el('active-vault-status').textContent = 'Active (Not Cracked)';
+      el('active-vault-status').style.color = 'var(--accent)';
+    }
+    
+    // Show/hide buttons based on role
+    if (currentUserRole === 'admin' || currentUserRole === 'superadmin') {
+      show(el('completeVaultBtn'));
+      show(el('resetVaultBtn'));
+    } else {
+      hide(el('completeVaultBtn'));
+      hide(el('resetVaultBtn'));
+    }
+  } else {
+    hide(el('active-vault-controls'));
+  }
+}
+    
 function refreshVerifyTab() {
   // Safety check
   if(!db) {
@@ -1175,6 +1224,9 @@ function refreshVerifyTab() {
   } else {
     hide(el('correct-code-proposal'));
   }
+  
+  // Add this at the very end of the function:
+  refreshActiveVaultControls();
 }
 
 el('confirmVaultBtn').addEventListener('click', async () => {
@@ -1269,6 +1321,76 @@ el('denyCorrectCodeBtn').addEventListener('click', async () => {
   }
 });
 
+// Add event listener for "Complete Vault" button
+el('completeVaultBtn').addEventListener('click', async () => {
+  if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+    alert('Only admins can complete vaults');
+    return;
+  }
+  
+  const correctCodeConfirmed = db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2;
+  
+  if (correctCodeConfirmed) {
+    alert('This vault was already cracked! Use Reset Vault instead.');
+    return;
+  }
+  
+  if (confirm(`Mark vault "${db.proposedVault.title}" as complete (not cracked)?`)) {
+    const vaultTitle = db.proposedVault.title;
+    
+    // Clear vault data
+    db.proposedVault = null;
+    db.proposedBy = null;
+    db.vaultConfirmations = {};
+    db.correctCodeProposal = null;
+    db.correctCodeProposedBy = null;
+    db.correctCodeConfirmations = {};
+    
+    // Keep verified codes but clear unverified and pulled codes
+    db.unverified = [];
+    db.userPulledCodes = {};
+    
+    await saveVaultDB();
+    addActivityLog('Completed Vault', `${vaultTitle} - Not Cracked`);
+    
+    alert('Vault marked as complete. You can now propose a new vault.');
+    refreshVerifyTab();
+    refreshStatus();
+    refreshActiveVaultControls();
+  }
+});
+
+// Add event listener for "Reset Vault" button (for admins)
+el('resetVaultBtn').addEventListener('click', async () => {
+  if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+    alert('Only admins can reset vaults');
+    return;
+  }
+  
+  if (confirm('⚠️ RESET VAULT? This will clear everything and allow a new vault to be proposed. This action cannot be undone!')) {
+    const vaultTitle = db.proposedVault ? db.proposedVault.title : 'Unknown';
+    
+    // Clear ALL vault data
+    db.proposedVault = null;
+    db.proposedBy = null;
+    db.vaultConfirmations = {};
+    db.correctCodeProposal = null;
+    db.correctCodeProposedBy = null;
+    db.correctCodeConfirmations = {};
+    db.unverified = [];
+    db.verified = [];
+    db.userPulledCodes = {};
+    
+    await saveVaultDB();
+    addActivityLog('Reset Vault', `${vaultTitle} - Admin Reset`);
+    
+    alert('Vault has been reset. You can now propose a new vault.');
+    refreshVerifyTab();
+    refreshStatus();
+    refreshActiveVaultControls();
+  }
+});
+
 async function saveVaultDB() {
   try {
     await database.ref('vault').set(db);
@@ -1300,6 +1422,7 @@ function setupRealtimeSync() {
       refreshVerifyTab();
       populateUserSelect();
       renderActivityLogs();
+      refreshActiveVaultControls(); // ADD THIS LINE
       const selectedUser = el('user-select').value;
       if (selectedUser) {
         renderUserCodes(selectedUser);
