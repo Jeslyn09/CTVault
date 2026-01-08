@@ -642,7 +642,7 @@ el('proposeVaultBtn').addEventListener('click', () => {
   openModal('proposeVaultModal');
 });
 
-// Also add the same check in the el('confirmProposeVault').addEventListener section:
+// REPLACE the el('confirmProposeVault').addEventListener section with this:
 el('confirmProposeVault').addEventListener('click', async () => {
   const title = el('vaultTitle').value.trim();
   const reward = el('vaultReward').value.trim();
@@ -660,7 +660,6 @@ el('confirmProposeVault').addEventListener('click', async () => {
     return;
   }
   
-  // ADD THIS CHECK: Double-check before saving
   if (db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2) {
     err.style.display = 'block';
     err.textContent = 'A vault is already active. Cannot propose a new vault.';
@@ -670,12 +669,13 @@ el('confirmProposeVault').addEventListener('click', async () => {
   const numbersStr = el('numbersInput').value.trim();
   const digitAmount = el('digitAmount').value;
   
+  // Store only metadata, not the actual codes array
   db.proposedVault = {
     title,
     reward,
     numbersInSequence: numbersStr,
     digitAmount: digitAmount,
-    codes: lastGeneratedCodes
+    totalCodes: lastGeneratedCodes.length // Store count only
   };
   db.proposedBy = currentUser;
   db.vaultConfirmations = {};
@@ -685,7 +685,6 @@ el('confirmProposeVault').addEventListener('click', async () => {
   
   closeProposeVaultModal();
   
-  // ADD THIS: Auto-switch to Verify tab and refresh
   const verifyTab = document.querySelector('.tab[data-tab="verify"]');
   if(verifyTab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -698,6 +697,46 @@ el('confirmProposeVault').addEventListener('click', async () => {
   refreshStatus();
   
   alert('Vault proposal submitted! Requires 2 confirmations from other users. Check the Verify tab.');
+});
+
+// FIND this section around line 1140-1165 and REPLACE it:
+el('confirmVaultBtn').addEventListener('click', async () => {
+  if(!db.vaultConfirmations) db.vaultConfirmations = {};
+  
+  if(db.vaultConfirmations[currentUser]) {
+    alert('You have already confirmed this vault');
+    return;
+  }
+  
+  if(db.proposedBy === currentUser) {
+    alert('You cannot confirm your own proposal');
+    return;
+  }
+  
+  db.vaultConfirmations[currentUser] = true;
+  
+  const confirmationCount = Object.keys(db.vaultConfirmations).length;
+  
+  if(confirmationCount >= 2) {
+    // Regenerate codes from metadata
+    const numbers = db.proposedVault.numbersInSequence.split(',').map(n => n.trim());
+    const digitAmount = parseInt(db.proposedVault.digitAmount);
+    const regeneratedCodes = generateCombinations(numbers, digitAmount, null);
+    
+    db.unverified = regeneratedCodes;
+    db.verified = [];
+    db.userPulledCodes = {};
+    
+    addActivityLog('Confirmed Vault', `${db.proposedVault.title} activated`);
+    alert(`Vault "${db.proposedVault.title}" has been confirmed and activated!`);
+  } else {
+    addActivityLog('Confirmed Vault', `${db.proposedVault.title} (${confirmationCount}/2)`);
+    alert(`Vault confirmed! (${confirmationCount}/2 confirmations)`);
+  }
+  
+  await saveVaultDB();
+  refreshVerifyTab();
+  refreshStatus();
 });
 
 el('pullBtn').addEventListener('click', async () => {
@@ -1198,8 +1237,8 @@ function refreshActiveVaultControls() {
   }
 }
     
+// UPDATE the refreshVerifyTab function - REPLACE the section that displays proposed vault details:
 function refreshVerifyTab() {
-  // Safety check
   if(!db) {
     hide(el('proposed-vault-section'));
     hide(el('correct-code-proposal'));
@@ -1224,7 +1263,7 @@ function refreshVerifyTab() {
       el('pv-reward').innerText = db.proposedVault.reward;
       el('pv-numbers').innerText = db.proposedVault.numbersInSequence;
       el('pv-digits').innerText = db.proposedVault.digitAmount;
-      el('pv-total').innerText = db.proposedVault.codes.length.toLocaleString();
+      el('pv-total').innerText = (db.proposedVault.totalCodes || 0).toLocaleString(); // Use stored count
       el('pv-confirmations').innerText = `${confirmationCount}/2`;
       
       const confirmedBy = Object.keys(db.vaultConfirmations || {});
@@ -1234,7 +1273,6 @@ function refreshVerifyTab() {
         el('pv-confirmed-by').innerText = '';
       }
       
-      // Check if current user is logged in
       if(currentUser) {
         const hasConfirmed = db.vaultConfirmations[currentUser];
         const isProposer = db.proposedBy === currentUser;
@@ -1242,7 +1280,6 @@ function refreshVerifyTab() {
         el('confirmVaultBtn').disabled = hasConfirmed || isProposer;
         el('denyVaultBtn').disabled = false;
         
-        // Show message if you're the proposer
         if(isProposer) {
           const existingMsg = el('pv-proposer-msg');
           if(!existingMsg) {
@@ -1251,12 +1288,11 @@ function refreshVerifyTab() {
             msg.className = 'small';
             msg.style.marginTop = '8px';
             msg.style.color = 'var(--muted)';
-            msg.innerText = '(You cannot confirm your own proposal - wait for 2 other users to confirm)';
+            msg.innerText = '(You can see your proposal but cannot confirm it - wait for 2 other users to confirm)';
             el('proposed-vault-section').appendChild(msg);
           }
         }
       } else {
-        // Not logged in - disable buttons
         el('confirmVaultBtn').disabled = true;
         el('denyVaultBtn').disabled = true;
       }
@@ -1307,40 +1343,6 @@ function refreshVerifyTab() {
   // Add this at the very end of the function:
   refreshActiveVaultControls();
 }
-
-el('confirmVaultBtn').addEventListener('click', async () => {
-  if(!db.vaultConfirmations) db.vaultConfirmations = {};
-  
-  if(db.vaultConfirmations[currentUser]) {
-    alert('You have already confirmed this vault');
-    return;
-  }
-  
-  if(db.proposedBy === currentUser) {
-    alert('You cannot confirm your own proposal');
-    return;
-  }
-  
-  db.vaultConfirmations[currentUser] = true;
-  
-  const confirmationCount = Object.keys(db.vaultConfirmations).length;
-  
-  if(confirmationCount >= 2) {
-    db.unverified = [...db.proposedVault.codes];
-    db.verified = [];
-    db.userPulledCodes = {};
-    
-    addActivityLog('Confirmed Vault', `${db.proposedVault.title} activated`);
-    alert(`Vault "${db.proposedVault.title}" has been confirmed and activated!`);
-  } else {
-    addActivityLog('Confirmed Vault', `${db.proposedVault.title} (${confirmationCount}/2)`);
-    alert(`Vault confirmed! (${confirmationCount}/2 confirmations)`);
-  }
-  
-  await saveVaultDB();
-  refreshVerifyTab();
-  refreshStatus();
-});
 
 el('denyVaultBtn').addEventListener('click', async () => {
   if(confirm('Are you sure you want to deny this vault proposal?')) {
