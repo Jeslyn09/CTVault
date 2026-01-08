@@ -430,6 +430,7 @@ let currentLogsPage = 1;
 let filteredVerifiedCodes = [];
 let filteredLogs = [];
 let lastGeneratedCodes = [];
+let isSavingCriticalData = false;
 
 function el(id) { return document.getElementById(id); }
 function show(element) { element.style.display = 'block'; }
@@ -699,7 +700,7 @@ el('confirmProposeVault').addEventListener('click', async () => {
   alert('Vault proposal submitted! Requires 2 confirmations from other users. Check the Verify tab.');
 });
 
-// FIND this section around line 1140-1165 and REPLACE it:
+// REPLACE the el('confirmVaultBtn').addEventListener section with this:
 el('confirmVaultBtn').addEventListener('click', async () => {
   if(!db.vaultConfirmations) db.vaultConfirmations = {};
   
@@ -713,30 +714,59 @@ el('confirmVaultBtn').addEventListener('click', async () => {
     return;
   }
   
+  // Set critical save flag BEFORE making changes
+  isSavingCriticalData = true;
+  
+  // Add confirmation
   db.vaultConfirmations[currentUser] = true;
   
   const confirmationCount = Object.keys(db.vaultConfirmations).length;
   
   if(confirmationCount >= 2) {
+    console.log('🎉 Vault confirmed! Regenerating codes...');
+    
     // Regenerate codes from metadata
     const numbers = db.proposedVault.numbersInSequence.split(',').map(n => n.trim());
     const digitAmount = parseInt(db.proposedVault.digitAmount);
     const regeneratedCodes = generateCombinations(numbers, digitAmount, null);
     
+    // Update database with all changes at once
     db.unverified = regeneratedCodes;
     db.verified = [];
     db.userPulledCodes = {};
     
-    addActivityLog('Confirmed Vault', `${db.proposedVault.title} activated`);
-    alert(`Vault "${db.proposedVault.title}" has been confirmed and activated!`);
+    // Save everything
+    try {
+      await database.ref('vault').set(db);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait longer for confirmation
+      
+      addActivityLog('Confirmed Vault', `${db.proposedVault.title} activated`);
+      alert(`Vault "${db.proposedVault.title}" has been confirmed and activated!`);
+      
+      // Force refresh UI
+      refreshVerifyTab();
+      refreshStatus();
+      refreshActiveVaultControls();
+      updatePublicVaultInfo();
+    } catch (error) {
+      console.error('Error confirming vault:', error);
+      alert('Error confirming vault. Please try again.');
+    } finally {
+      isSavingCriticalData = false;
+    }
   } else {
-    addActivityLog('Confirmed Vault', `${db.proposedVault.title} (${confirmationCount}/2)`);
-    alert(`Vault confirmed! (${confirmationCount}/2 confirmations)`);
+    // Just save confirmation
+    try {
+      await saveVaultDB();
+      addActivityLog('Confirmed Vault', `${db.proposedVault.title} (${confirmationCount}/2)`);
+      alert(`Vault confirmed! (${confirmationCount}/2 confirmations)`);
+      
+      refreshVerifyTab();
+      refreshStatus();
+    } finally {
+      isSavingCriticalData = false;
+    }
   }
-  
-  await saveVaultDB();
-  refreshVerifyTab();
-  refreshStatus();
 });
 
 el('pullBtn').addEventListener('click', async () => {
@@ -1388,20 +1418,28 @@ el('confirmCorrectCodeBtn').addEventListener('click', async () => {
     return;
   }
   
+  // Set critical save flag
+  isSavingCriticalData = true;
+  
   db.correctCodeConfirmations[currentUser] = true;
   
   const confirmationCount = Object.keys(db.correctCodeConfirmations).length;
   
-  if(confirmationCount >= 2) {
-    addActivityLog('Confirmed Correct Code', db.correctCodeProposal.split('').join(', '));
-    alert('Correct code has been confirmed and will now be displayed!');
-  } else {
-    alert(`Correct code confirmed! (${confirmationCount}/2 confirmations)`);
+  try {
+    await saveVaultDB();
+    
+    if(confirmationCount >= 2) {
+      addActivityLog('Confirmed Correct Code', db.correctCodeProposal.split('').join(', '));
+      alert('Correct code has been confirmed and will now be displayed!');
+    } else {
+      alert(`Correct code confirmed! (${confirmationCount}/2 confirmations)`);
+    }
+    
+    refreshVerifyTab();
+    refreshStatus();
+  } finally {
+    isSavingCriticalData = false;
   }
-  
-  await saveVaultDB();
-  refreshVerifyTab();
-  refreshStatus();
 });
 
 el('denyCorrectCodeBtn').addEventListener('click', async () => {
@@ -1490,14 +1528,25 @@ el('resetVaultBtn').addEventListener('click', async () => {
 
 async function saveVaultDB() {
   try {
+    isSavingCriticalData = true;
     await database.ref('vault').set(db);
+    // Wait a bit to ensure Firebase processes the write
+    await new Promise(resolve => setTimeout(resolve, 300));
   } catch (error) {
     console.error('Error saving to Firebase:', error);
+  } finally {
+    isSavingCriticalData = false;
   }
 }
 
 function setupRealtimeSync() {
   database.ref('vault').on('value', snapshot => {
+    // Don't update if we're in the middle of a critical save operation
+    if (isSavingCriticalData) {
+      console.log('Skipping sync - critical save in progress');
+      return;
+    }
+    
     if (snapshot.exists()) {
       const data = snapshot.val();
       db = {
@@ -1519,7 +1568,8 @@ function setupRealtimeSync() {
       populateUserSelect();
       renderActivityLogs();
       refreshActiveVaultControls();
-      updatePublicVaultInfo(); // ADD THIS LINE
+      updatePublicVaultInfo();
+      
       const selectedUser = el('user-select').value;
       if (selectedUser) {
         renderUserCodes(selectedUser);
@@ -1531,7 +1581,6 @@ function setupRealtimeSync() {
     if (snapshot.exists()) {
       users = snapshot.val();
       
-      // If current user was deleted, log them out
       if(currentUser && !users[currentUser]) {
         currentUser = null;
         currentUserRole = null;
@@ -1541,7 +1590,6 @@ function setupRealtimeSync() {
         return;
       }
       
-      // If current user's role changed, update it
       if(currentUser && users[currentUser]) {
         const newRole = users[currentUser].role;
         if(newRole !== currentUserRole) {
@@ -1550,7 +1598,6 @@ function setupRealtimeSync() {
         }
       }
       
-      // Always re-render users list if modal is open
       if(el('usersModal').style.display === 'flex') {
         renderUsersList();
       }
