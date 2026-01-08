@@ -1486,39 +1486,43 @@ window.changePassword = changePassword;
 
 async function checkAuth(){
   try {
-    // Check session storage FIRST
+    // Don't show lock screen immediately on page load
     const saved = sessionStorage.getItem('vaultUser');
     
-    // Load data from Firebase
+    // Load users from Firebase first
     await loadUsersFromFirebase();
     
+    // Load vault data
     const vaultSnapshot = await database.ref('vault').once('value');
     if (vaultSnapshot.exists()) {
       db = vaultSnapshot.val();
     }
     
-    setupRealtimeSync();
-    
+    // Ensure superadmin exists
     if(!users.superadmin){
       users.superadmin = { password:'super2024', role:'superadmin' };
       await saveUsersToFirebase();
     }
     
-    // Validate session after users are loaded
+    // Setup realtime sync AFTER initial load
+    setupRealtimeSync();
+    
+    // Now validate and update UI
     if(saved && users[saved]){
       currentUser = saved;
       currentUserRole = users[saved].role;
-      updateUIForAuth(false); // Don't show lock screen
+      hideLoginRequired(); // Explicitly hide lock screen
+      updateUIForAuth(false);
+      refreshVerifyTab();
+      refreshStatus();
+      populateUserSelect();
+      renderActivityLogs();
     } else {
       // Clear invalid session
       if(saved) sessionStorage.removeItem('vaultUser');
-      updateUIForAuth(true); // Show lock screen only if no valid session
+      showLoginRequired();
     }
     
-    refreshVerifyTab();
-    refreshStatus();
-    populateUserSelect();
-    renderActivityLogs();
   } catch(error) {
     console.error('Auth error:', error);
     showLoginRequired();
@@ -1527,7 +1531,10 @@ async function checkAuth(){
 
 // Make sure DOM is loaded before running
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', checkAuth);
+  document.addEventListener('DOMContentLoaded', () => {
+    // Don't show lock screen until auth check completes
+    checkAuth();
+  });
 } else {
   checkAuth();
 }
