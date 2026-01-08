@@ -1486,11 +1486,16 @@ window.changePassword = changePassword;
 
 async function checkAuth(){
   try {
+    console.log('=== Starting checkAuth ===');
+    
     // Get saved session FIRST
     const saved = localStorage.getItem('vaultUser');
+    console.log('Saved user from localStorage:', saved);
     
     // Load users from Firebase
     await loadUsersFromFirebase();
+    console.log('Users loaded from Firebase:', Object.keys(users));
+    console.log('Does saved user exist in Firebase?', saved && users[saved] ? 'YES' : 'NO');
     
     // Load vault data
     const vaultSnapshot = await database.ref('vault').once('value');
@@ -1506,6 +1511,7 @@ async function checkAuth(){
     
     // Validate session
     if(saved && users[saved]){
+      console.log('✅ Valid session found, logging in as:', saved);
       currentUser = saved;
       currentUserRole = users[saved].role;
       
@@ -1519,6 +1525,7 @@ async function checkAuth(){
       populateUserSelect();
       renderActivityLogs();
     } else {
+      console.log('❌ No valid session, showing login');
       // Clear invalid session
       if(saved) localStorage.removeItem('vaultUser');
       
@@ -1533,21 +1540,6 @@ async function checkAuth(){
     console.error('Auth error:', error);
     showLoginRequired();
   }
-}
-
-// Prevent flash of login screen - hide body until auth completes
-document.body.style.visibility = 'hidden';
-
-// Make sure DOM is loaded before running
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', async () => {
-    await checkAuth();
-    document.body.style.visibility = 'visible';
-  });
-} else {
-  checkAuth().then(() => {
-    document.body.style.visibility = 'visible';
-  });
 }
 
   } // End of initApp
