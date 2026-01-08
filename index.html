@@ -1244,7 +1244,7 @@ function setupRealtimeSync() {
       if(currentUser && !users[currentUser]) {
         currentUser = null;
         currentUserRole = null;
-        sessionStorage.removeItem('vaultUser');
+        localStorage.removeItem('vaultUser');
         updateUIForAuth();
         showLoginRequired();
         return;
@@ -1301,7 +1301,7 @@ function updateUIForAuth(showLockIfNeeded = true){
         addActivityLog('User Logout', `${currentUser} logged out`);
         currentUser=null; 
         currentUserRole=null; 
-        sessionStorage.removeItem('vaultUser'); 
+        localStorage.removeItem('vaultUser'); 
         updateUIForAuth(true); 
      });
    }
@@ -1347,7 +1347,7 @@ el('confirmLogin').addEventListener('click', ()=>{
   if(users[u] && users[u].password===p){ 
     currentUser = u; 
     currentUserRole = users[u].role; 
-    sessionStorage.setItem('vaultUser', u); 
+    localStorage.setItem('vaultUser', u); 
     closeLoginModal(); 
     updateUIForAuth();
     refreshVerifyTab();
@@ -1364,7 +1364,7 @@ el('logoutBtn').addEventListener('click', ()=>{
   addActivityLog('User Logout', `${currentUser} logged out`);
   currentUser=null; 
   currentUserRole=null; 
-  sessionStorage.removeItem('vaultUser'); 
+  localStorage.removeItem('vaultUser'); 
   updateUIForAuth(true); // <-- FIX: Add the parameter!
 });
 
@@ -1487,7 +1487,7 @@ window.changePassword = changePassword;
 async function checkAuth(){
   try {
     // Don't show lock screen immediately on page load
-    const saved = sessionStorage.getItem('vaultUser');
+    const saved = localStorage.getItem('vaultUser'); // Changed from localStorage
     
     // Load users from Firebase first
     await loadUsersFromFirebase();
@@ -1519,7 +1519,7 @@ async function checkAuth(){
       renderActivityLogs();
     } else {
       // Clear invalid session
-      if(saved) sessionStorage.removeItem('vaultUser');
+      if(saved) localStorage.removeItem('vaultUser'); // Changed from localStorage
       showLoginRequired();
     }
     
