@@ -714,36 +714,27 @@ el('confirmVaultBtn').addEventListener('click', async () => {
     return;
   }
   
-  // Set critical save flag BEFORE making changes
   isSavingCriticalData = true;
   
-  // Add confirmation
   db.vaultConfirmations[currentUser] = true;
   
   const confirmationCount = Object.keys(db.vaultConfirmations).length;
   
   if(confirmationCount >= 2) {
-    console.log('🎉 Vault confirmed! Regenerating codes...');
+    console.log('🎉 Vault confirmed! Activating...');
     
-    // Regenerate codes from metadata
-    const numbers = db.proposedVault.numbersInSequence.split(',').map(n => n.trim());
-    const digitAmount = parseInt(db.proposedVault.digitAmount);
-    const regeneratedCodes = generateCombinations(numbers, digitAmount, null);
-    
-    // Update database with all changes at once
-    db.unverified = regeneratedCodes;
+    // DON'T regenerate codes - just clear the arrays
+    db.unverified = [];
     db.verified = [];
     db.userPulledCodes = {};
     
-    // Save everything
     try {
       await database.ref('vault').set(db);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Wait longer for confirmation
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       addActivityLog('Confirmed Vault', `${db.proposedVault.title} activated`);
       alert(`Vault "${db.proposedVault.title}" has been confirmed and activated!`);
       
-      // Force refresh UI
       refreshVerifyTab();
       refreshStatus();
       refreshActiveVaultControls();
@@ -755,7 +746,6 @@ el('confirmVaultBtn').addEventListener('click', async () => {
       isSavingCriticalData = false;
     }
   } else {
-    // Just save confirmation
     try {
       await saveVaultDB();
       addActivityLog('Confirmed Vault', `${db.proposedVault.title} (${confirmationCount}/2)`);
@@ -769,9 +759,16 @@ el('confirmVaultBtn').addEventListener('click', async () => {
   }
 });
 
+// REPLACE the el('pullBtn').addEventListener section with this:
 el('pullBtn').addEventListener('click', async () => {
   if (db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2) {
     alert('Pull codes is disabled. The correct code has been found!');
+    return;
+  }
+  
+  // Check if vault is active
+  if (!db.proposedVault || Object.keys(db.vaultConfirmations || {}).length < 2) {
+    alert('No active vault to pull codes from');
     return;
   }
   
@@ -791,13 +788,25 @@ el('pullBtn').addEventListener('click', async () => {
     return;
   }
   
-  let availableCodes = db.unverified.filter(code => {
-    if (startDigit) return code[0] === startDigit;
-    return true;
-  });
+  // Generate codes on-demand from vault metadata
+  const numbers = db.proposedVault.numbersInSequence.split(',').map(n => n.trim());
+  const digitAmount = parseInt(db.proposedVault.digitAmount);
+  const allCodes = generateCombinations(numbers, digitAmount, startDigit);
+  
+  // Filter out already verified or pulled codes
+  const pulledCodes = new Set();
+  for (let user in db.userPulledCodes) {
+    db.userPulledCodes[user].forEach(item => pulledCodes.add(item.code));
+  }
+  
+  const verifiedSet = new Set(db.verified);
+  
+  const availableCodes = allCodes.filter(code => 
+    !pulledCodes.has(code) && !verifiedSet.has(code)
+  );
   
   if (availableCodes.length === 0) {
-    alert('No unverified codes available');
+    alert('No codes available with the specified criteria');
     return;
   }
   
@@ -808,7 +817,6 @@ el('pullBtn').addEventListener('click', async () => {
   }
   
   db.userPulledCodes[username].push(...codesToPull.map(c => ({ code: c, timestamp: Date.now() })));
-  db.unverified = db.unverified.filter(c => !codesToPull.includes(c));
   
   await saveVaultDB();
   
@@ -1176,20 +1184,30 @@ el('clearLogsBtn').addEventListener('click', async () => {
   }
 });
 
+// UPDATE refreshStatus to show correct counts:
 function refreshStatus() {
-  // Safety check - if db doesn't exist yet, just return
   if (!db) return;
   
-  // Ensure arrays exist, use empty arrays as fallback
-  const unverified = db.unverified || [];
   const verified = db.verified || [];
   
   if (db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2) {
     el('vault-title-display').textContent = db.proposedVault.title;
     el('vault-reward-display').textContent = db.proposedVault.reward;
+    
+    // Calculate unverified dynamically
+    const totalCodes = db.proposedVault.totalCodes || 0;
+    const pulledCount = Object.values(db.userPulledCodes).reduce((sum, codes) => sum + codes.length, 0);
+    const unverifiedCount = Math.max(0, totalCodes - verified.length - pulledCount);
+    
+    el('status-total').textContent = totalCodes.toLocaleString();
+    el('status-verified').textContent = verified.length.toLocaleString();
+    el('status-unverified').textContent = unverifiedCount.toLocaleString();
   } else {
     el('vault-title-display').textContent = 'No Active Vault';
     el('vault-reward-display').textContent = '—';
+    el('status-total').textContent = '0';
+    el('status-verified').textContent = '0';
+    el('status-unverified').textContent = '0';
   }
   
   if (db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2) {
@@ -1198,16 +1216,10 @@ function refreshStatus() {
   } else {
     hide(el('vault-code-display'));
   }
-  
-  const total = unverified.length + verified.length;
-  el('status-total').textContent = total.toLocaleString();
-  el('status-verified').textContent = verified.length.toLocaleString();
-  el('status-unverified').textContent = unverified.length.toLocaleString();
 
   const vaultConfirmed = db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2;
   el('proposeVaultBtn').disabled = vaultConfirmed;
   
-  // Disable pull codes section if correct code is confirmed
   const correctCodeConfirmed = db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2;
   
   if (correctCodeConfirmed) {
@@ -1226,15 +1238,10 @@ function refreshStatus() {
     el('pull-spacing').disabled = false;
   }
   
-  // Add this at the very end:
   if (typeof refreshActiveVaultControls === 'function') {
     refreshActiveVaultControls();
   }
-    if (typeof refreshActiveVaultControls === 'function') {
-    refreshActiveVaultControls();
-  }
   
-  // ADD THIS NEW LINE:
   updatePublicVaultInfo();
 }
 
@@ -1710,7 +1717,7 @@ function updateUIForAuth(showLockIfNeeded = true){
   updatePublicVaultInfo();
 }
     
-// REPLACE the updatePublicVaultInfo() function with this enhanced version:
+// REPLACE the updatePublicVaultInfo() function with this corrected version:
 function updatePublicVaultInfo() {
   const publicInfo = el('public-vault-info');
   const rankingsSection = el('public-rankings');
@@ -1722,9 +1729,11 @@ function updatePublicVaultInfo() {
   const correctCodeConfirmed = db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2;
   
   if(vaultConfirmed) {
-    const totalCodes = (db.unverified || []).length + (db.verified || []).length;
+    // Calculate counts dynamically from metadata
+    const totalCodes = db.proposedVault.totalCodes || 0;
     const verifiedCount = (db.verified || []).length;
-    const unverifiedCount = (db.unverified || []).length;
+    const pulledCount = Object.values(db.userPulledCodes || {}).reduce((sum, codes) => sum + codes.length, 0);
+    const unverifiedCount = Math.max(0, totalCodes - verifiedCount - pulledCount);
     
     let statusHTML = `
       <div style="margin-bottom:12px">
