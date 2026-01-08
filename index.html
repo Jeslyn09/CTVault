@@ -1237,7 +1237,6 @@ function refreshActiveVaultControls() {
   }
 }
     
-// UPDATE the refreshVerifyTab function - REPLACE the section that displays proposed vault details:
 function refreshVerifyTab() {
   if(!db) {
     hide(el('proposed-vault-section'));
@@ -1249,21 +1248,28 @@ function refreshVerifyTab() {
   console.log('db.proposedVault:', db.proposedVault);
   console.log('db.proposedBy:', db.proposedBy);
   console.log('currentUser:', currentUser);
+  console.log('db.vaultConfirmations:', db.vaultConfirmations);
   
+  // Show proposed vault if it exists and hasn't been confirmed yet
   if(db.proposedVault && db.proposedBy) {
     const confirmationCount = Object.keys(db.vaultConfirmations || {}).length;
     console.log('Confirmation count:', confirmationCount);
     
+    // Show as long as less than 2 confirmations
     if(confirmationCount < 2) {
       show(el('proposed-vault-section'));
       
       el('pv-proposer').innerText = db.proposedBy;
-      el('pv-proposer-role').innerText = `(${getRoleDisplayName(users[db.proposedBy]?.role || 'unknown')})`;
+      
+      // Safely get role with fallback
+      const proposerRole = users[db.proposedBy] ? users[db.proposedBy].role : 'unknown';
+      el('pv-proposer-role').innerText = `(${getRoleDisplayName(proposerRole)})`;
+      
       el('pv-title').innerText = db.proposedVault.title;
       el('pv-reward').innerText = db.proposedVault.reward;
       el('pv-numbers').innerText = db.proposedVault.numbersInSequence;
       el('pv-digits').innerText = db.proposedVault.digitAmount;
-      el('pv-total').innerText = (db.proposedVault.totalCodes || 0).toLocaleString(); // Use stored count
+      el('pv-total').innerText = (db.proposedVault.totalCodes || 0).toLocaleString();
       el('pv-confirmations').innerText = `${confirmationCount}/2`;
       
       const confirmedBy = Object.keys(db.vaultConfirmations || {});
@@ -1273,6 +1279,7 @@ function refreshVerifyTab() {
         el('pv-confirmed-by').innerText = '';
       }
       
+      // Button states - only disable if user is logged in
       if(currentUser) {
         const hasConfirmed = db.vaultConfirmations[currentUser];
         const isProposer = db.proposedBy === currentUser;
@@ -1280,6 +1287,7 @@ function refreshVerifyTab() {
         el('confirmVaultBtn').disabled = hasConfirmed || isProposer;
         el('denyVaultBtn').disabled = false;
         
+        // Add message for proposer
         if(isProposer) {
           const existingMsg = el('pv-proposer-msg');
           if(!existingMsg) {
@@ -1288,11 +1296,16 @@ function refreshVerifyTab() {
             msg.className = 'small';
             msg.style.marginTop = '8px';
             msg.style.color = 'var(--muted)';
-            msg.innerText = '(You can see your proposal but cannot confirm it - wait for 2 other users to confirm)';
+            msg.innerText = '(You cannot confirm your own proposal - wait for 2 other users to confirm)';
             el('proposed-vault-section').appendChild(msg);
           }
+        } else {
+          // Remove proposer message if it exists
+          const existingMsg = el('pv-proposer-msg');
+          if(existingMsg) existingMsg.remove();
         }
       } else {
+        // Not logged in - disable buttons
         el('confirmVaultBtn').disabled = true;
         el('denyVaultBtn').disabled = true;
       }
@@ -1305,6 +1318,7 @@ function refreshVerifyTab() {
     hide(el('proposed-vault-section'));
   }
   
+  // Handle correct code proposal section (same pattern)
   if(db.correctCodeProposal && db.correctCodeProposedBy) {
     const confirmationCount = Object.keys(db.correctCodeConfirmations || {}).length;
     
@@ -1312,7 +1326,10 @@ function refreshVerifyTab() {
       show(el('correct-code-proposal'));
       
       el('cc-proposer').innerText = db.correctCodeProposedBy;
-      el('cc-proposer-role').innerText = `(${getRoleDisplayName(users[db.correctCodeProposedBy]?.role || 'unknown')})`;
+      
+      const proposerRole = users[db.correctCodeProposedBy] ? users[db.correctCodeProposedBy].role : 'unknown';
+      el('cc-proposer-role').innerText = `(${getRoleDisplayName(proposerRole)})`;
+      
       el('cc-code').innerText = db.correctCodeProposal.split('').join(', ');
       el('cc-confirmations').innerText = `${confirmationCount}/2`;
       
@@ -1340,7 +1357,6 @@ function refreshVerifyTab() {
     hide(el('correct-code-proposal'));
   }
   
-  // Add this at the very end of the function:
   refreshActiveVaultControls();
 }
 
