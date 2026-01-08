@@ -1542,6 +1542,21 @@ async function checkAuth(){
   }
 }
 
+// Prevent flash of login screen - hide body until auth completes
+document.body.style.visibility = 'hidden';
+
+// Make sure DOM is loaded before running
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuth();
+    document.body.style.visibility = 'visible';
+  });
+} else {
+  checkAuth().then(() => {
+    document.body.style.visibility = 'visible';
+  });
+}
+    
   } // End of initApp
   
   // Start the initialization
