@@ -13,8 +13,8 @@ html,body{height:100%}
 body{font-family:Inter, Arial, sans-serif;margin:0;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 body.locked .container, body.locked .header .controls{filter:blur(8px);pointer-events:none;user-select:none}
 .header{display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--card-border);flex-wrap:wrap;gap:12px}
-.header h1{margin:0;font-size:18px}
-.controls{display:flex;gap:8px;flex-wrap:wrap}
+.header h1{margin:0;font-size:18px;flex:1}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
 .btn{padding:8px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px}
 .btn:disabled{opacity:0.5;cursor:not-allowed}
 .btn.ghost{background:transparent;border:1px solid var(--card-border);color:var(--muted)}
@@ -75,17 +75,20 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
       <button class="tab hidden" data-tab="verify">Verify</button>
       <button class="tab hidden" id="usersTab" data-tab="users">Users</button>
     </div>
-
+    <!-- REPLACE the entire <section class="card" id="public"> section with this: -->
     <section class="card" id="public">
       <h3>Vault Status</h3>
-        <div style="margin-top:20px;text-align:right">
-        <button class="btn" onclick="openLoginModal()">Login</button>
-      </div>
       <div style="margin-top:20px;padding:16px;background:var(--surface-2);border-radius:8px">
         <h4 style="margin:0 0 12px 0">Current Vault Status</h4>
         <div id="public-vault-info">
           <p class="small">No active vault at the moment.</p>
         </div>
+      </div>
+  
+  <!-- Rankings Section -->
+      <div id="public-rankings" style="margin-top:20px;padding:16px;background:var(--surface-2);border-radius:8px;display:none">
+        <h4 style="margin:0 0 12px 0">🏆 Top 5 Vault Crackers</h4>
+        <div id="rankings-list"></div>
       </div>
     </section>
     
@@ -431,6 +434,15 @@ function show(element) { element.style.display = 'block'; }
 function hide(element) { element.style.display = 'none'; }
 function openModal(id) { el(id).style.display = 'flex'; }
 function closeModal(id) { el(id).style.display = 'none'; }
+
+function getRoleDisplayName(role) {
+  switch(role) {
+    case 'superadmin': return 'Admin';
+    case 'admin': return 'Vault Admin';
+    case 'monkey': return 'Vault Monkey';
+    default: return 'Unknown';
+  }
+}
 
 // Modal functions - exposed globally
 function openLoginModal(){ openModal('loginModal'); }
@@ -1586,8 +1598,12 @@ function updateUIForAuth(showLockIfNeeded = true){
   updatePublicVaultInfo();
 }
     
+// REPLACE the updatePublicVaultInfo() function with this enhanced version:
 function updatePublicVaultInfo() {
   const publicInfo = el('public-vault-info');
+  const rankingsSection = el('public-rankings');
+  const rankingsList = el('rankings-list');
+  
   if(!publicInfo) return;
   
   const vaultConfirmed = db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2;
@@ -1603,14 +1619,7 @@ function updatePublicVaultInfo() {
         <strong style="font-size:20px;color:var(--accent)">${db.proposedVault.title}</strong>
       </div>
       <div style="margin-bottom:8px">
-        <strong>Reward:</strong> <span style="color:var(--success)">${db.proposedVault.reward}</span>
-      </div>
-      <div style="margin-bottom:8px">
-        <strong>Total Codes:</strong> ${totalCodes.toLocaleString()}
-      </div>
-      <div style="margin-bottom:8px">
-        <strong>Verified:</strong> ${verifiedCount.toLocaleString()} | 
-        <strong>Unverified:</strong> ${unverifiedCount.toLocaleString()}
+        <strong>Reward:</strong> <span style="color:var(--success);font-size:16px">${db.proposedVault.reward}</span>
       </div>
     `;
     
@@ -1631,10 +1640,74 @@ function updatePublicVaultInfo() {
       `;
     }
     
+    statusHTML += `
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--card-border)">
+        <div style="margin-bottom:8px">
+          <strong>Total Combinations:</strong> ${totalCodes.toLocaleString()}
+        </div>
+        <div style="margin-bottom:8px">
+          <strong>Verified Codes:</strong> <span style="color:var(--success)">${verifiedCount.toLocaleString()}</span>
+        </div>
+        <div style="margin-bottom:8px">
+          <strong>Unverified Codes:</strong> <span style="color:var(--accent)">${unverifiedCount.toLocaleString()}</span>
+        </div>
+      </div>
+    `;
+    
     publicInfo.innerHTML = statusHTML;
+    
+    // Show rankings
+    show(rankingsSection);
+    updateRankings();
   } else {
     publicInfo.innerHTML = '<p class="small" style="color:var(--muted)">No active vault at the moment.</p>';
+    hide(rankingsSection);
   }
+}
+
+// ADD this new function for rankings:
+function updateRankings() {
+  const rankingsList = el('rankings-list');
+  if(!rankingsList) return;
+  
+  // Calculate user verified counts
+  const userStats = {};
+  for(let username in db.userVerifiedHistory) {
+    userStats[username] = (db.userVerifiedHistory[username] || []).length;
+  }
+  
+  // Sort by verified count
+  const sorted = Object.entries(userStats)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5); // Top 5
+  
+  if(sorted.length === 0) {
+    rankingsList.innerHTML = '<p class="small" style="color:var(--muted)">No verified codes yet.</p>';
+    return;
+  }
+  
+  let html = '<div style="display:flex;flex-direction:column;gap:8px">';
+  
+  sorted.forEach(([username, count], index) => {
+    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+    const highlight = index < 3 ? 'style="background:rgba(255,255,255,0.05);padding:8px;border-radius:6px"' : 'style="padding:8px"';
+    
+    html += `
+      <div ${highlight}>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${medal} ${index + 1}. ${username}</strong>
+          </div>
+          <div style="color:var(--success);font-weight:bold">
+            ${count.toLocaleString()} codes
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  rankingsList.innerHTML = html;
 }
 
 function showLoginRequired(){ 
