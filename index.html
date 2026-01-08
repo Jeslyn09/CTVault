@@ -62,7 +62,9 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
 
 <header class="header">
   <h1>Vault Tool <span class="sync-indicator" id="syncIndicator" title="Synced"></span></h1>
-  <div class="controls" id="userInfo"></div>
+  <div class="controls" id="userInfo">
+    <button class="btn" onclick="openLoginModal()">Login</button>
+  </div>
 </header>
 
 <main class="container">
@@ -92,7 +94,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
       </div>
     </section>
     
-    <section class="card" id="highlighter">
+    <section class="card" id="highlighter" style="display:none">
       <h3>Highlight & Spacing</h3>
       <textarea id="inputBox" placeholder="Paste number combos or codes..." rows="6"></textarea>
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
@@ -682,9 +684,20 @@ el('confirmProposeVault').addEventListener('click', async () => {
   addActivityLog('Proposed Vault', `${title} with ${lastGeneratedCodes.length} codes`);
   
   closeProposeVaultModal();
-  alert('Vault proposal submitted! Requires 2 confirmations.');
+  
+  // ADD THIS: Auto-switch to Verify tab and refresh
+  const verifyTab = document.querySelector('.tab[data-tab="verify"]');
+  if(verifyTab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    verifyTab.classList.add('active');
+    document.querySelectorAll('.card').forEach(card => hide(card));
+    show(el('verify'));
+  }
+  
   refreshVerifyTab();
   refreshStatus();
+  
+  alert('Vault proposal submitted! Requires 2 confirmations from other users. Check the Verify tab.');
 });
 
 el('pullBtn').addEventListener('click', async () => {
@@ -1193,8 +1206,14 @@ function refreshVerifyTab() {
     return;
   }
   
+  console.log('=== refreshVerifyTab Debug ===');
+  console.log('db.proposedVault:', db.proposedVault);
+  console.log('db.proposedBy:', db.proposedBy);
+  console.log('currentUser:', currentUser);
+  
   if(db.proposedVault && db.proposedBy) {
     const confirmationCount = Object.keys(db.vaultConfirmations || {}).length;
+    console.log('Confirmation count:', confirmationCount);
     
     if(confirmationCount < 2) {
       show(el('proposed-vault-section'));
@@ -1215,15 +1234,38 @@ function refreshVerifyTab() {
         el('pv-confirmed-by').innerText = '';
       }
       
-      const hasConfirmed = db.vaultConfirmations[currentUser];
-      const isProposer = db.proposedBy === currentUser;
-      
-      el('confirmVaultBtn').disabled = hasConfirmed || isProposer;
-      el('denyVaultBtn').disabled = false;
+      // Check if current user is logged in
+      if(currentUser) {
+        const hasConfirmed = db.vaultConfirmations[currentUser];
+        const isProposer = db.proposedBy === currentUser;
+        
+        el('confirmVaultBtn').disabled = hasConfirmed || isProposer;
+        el('denyVaultBtn').disabled = false;
+        
+        // Show message if you're the proposer
+        if(isProposer) {
+          const existingMsg = el('pv-proposer-msg');
+          if(!existingMsg) {
+            const msg = document.createElement('div');
+            msg.id = 'pv-proposer-msg';
+            msg.className = 'small';
+            msg.style.marginTop = '8px';
+            msg.style.color = 'var(--muted)';
+            msg.innerText = '(You cannot confirm your own proposal - wait for 2 other users to confirm)';
+            el('proposed-vault-section').appendChild(msg);
+          }
+        }
+      } else {
+        // Not logged in - disable buttons
+        el('confirmVaultBtn').disabled = true;
+        el('denyVaultBtn').disabled = true;
+      }
     } else {
+      console.log('Hiding proposed vault section - already confirmed');
       hide(el('proposed-vault-section'));
     }
   } else {
+    console.log('No proposed vault found');
     hide(el('proposed-vault-section'));
   }
   
@@ -1245,11 +1287,16 @@ function refreshVerifyTab() {
         el('cc-confirmed-by').innerText = '';
       }
       
-      const hasConfirmed = db.correctCodeConfirmations[currentUser];
-      const isProposer = db.correctCodeProposedBy === currentUser;
-      
-      el('confirmCorrectCodeBtn').disabled = hasConfirmed || isProposer;
-      el('denyCorrectCodeBtn').disabled = false;
+      if(currentUser) {
+        const hasConfirmed = db.correctCodeConfirmations[currentUser];
+        const isProposer = db.correctCodeProposedBy === currentUser;
+        
+        el('confirmCorrectCodeBtn').disabled = hasConfirmed || isProposer;
+        el('denyCorrectCodeBtn').disabled = false;
+      } else {
+        el('confirmCorrectCodeBtn').disabled = true;
+        el('denyCorrectCodeBtn').disabled = true;
+      }
     } else {
       hide(el('correct-code-proposal'));
     }
@@ -1825,7 +1872,42 @@ function changePassword(username){
   }
 }
 window.changePassword = changePassword;
-
+    
+// ADD this event listener for the login functionality (around line 1200, before checkAuth function):
+el('confirmLogin').addEventListener('click', async () => {
+  const username = el('loginUsername').value.trim();
+  const password = el('loginPassword').value.trim();
+  const err = el('loginError');
+  
+  err.style.display = 'none';
+  
+  if(!username || !password) {
+    err.style.display = 'block';
+    err.textContent = 'Please enter username and password';
+    return;
+  }
+  
+  if(users[username] && users[username].password === password) {
+    currentUser = username;
+    currentUserRole = users[username].role;
+    localStorage.setItem('vaultUser', username);
+    
+    closeLoginModal();
+    updateUIForAuth(false);
+    addActivityLog('User Login', `${username} logged in`);
+    
+    if(db) {
+      refreshVerifyTab();
+      refreshStatus();
+      populateUserSelect();
+      renderActivityLogs();
+    }
+  } else {
+    err.style.display = 'block';
+    err.textContent = 'Invalid username or password';
+  }
+});
+    
 async function checkAuth(){
   try {
     console.log('=== Starting checkAuth ===');
@@ -1919,13 +2001,17 @@ async function checkAuth(){
         renderActivityLogs();
       }
     } else {
-      console.log('❌ No valid session, showing login');
+      console.log('❌ No valid session, showing public tab');
       // Clear invalid session
       if(saved) localStorage.removeItem('vaultUser');
   
       // Don't show login required - just show public tab
-      updateUIForAuth(false); // CHANGE THIS LINE
+      updateUIForAuth(false);
     }
+  } catch(error) {
+    console.error('Auth error:', error);
+    updateUIForAuth(false);
+  }
 }
 
 // Prevent flash of login screen - hide body until auth completes
@@ -1940,6 +2026,10 @@ if (document.readyState === 'loading') {
 } else {
   checkAuth().then(() => {
     document.body.style.visibility = 'visible';
+  }).catch(error => {
+    console.error('Auth error:', error);
+    document.body.style.visibility = 'visible';
+    updateUIForAuth(false);
   });
 }
     
