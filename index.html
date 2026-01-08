@@ -759,7 +759,7 @@ el('confirmVaultBtn').addEventListener('click', async () => {
   }
 });
 
-// REPLACE the el('pullBtn').addEventListener section with this:
+// REPLACE the el('pullBtn').addEventListener section with this CORRECTED version:
 el('pullBtn').addEventListener('click', async () => {
   if (db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2) {
     alert('Pull codes is disabled. The correct code has been found!');
@@ -791,19 +791,28 @@ el('pullBtn').addEventListener('click', async () => {
   // Generate codes on-demand from vault metadata
   const numbers = db.proposedVault.numbersInSequence.split(',').map(n => n.trim());
   const digitAmount = parseInt(db.proposedVault.digitAmount);
-  const allCodes = generateCombinations(numbers, digitAmount, startDigit);
   
-  // Filter out already verified or pulled codes
-  const pulledCodes = new Set();
+  // Generate ALL codes first (without startDigit filter)
+  const allPossibleCodes = generateCombinations(numbers, digitAmount, null);
+  
+  // Build a set of already used codes (pulled OR verified)
+  const usedCodes = new Set();
+  
+  // Add all pulled codes from all users
   for (let user in db.userPulledCodes) {
-    db.userPulledCodes[user].forEach(item => pulledCodes.add(item.code));
+    (db.userPulledCodes[user] || []).forEach(item => usedCodes.add(item.code));
   }
   
-  const verifiedSet = new Set(db.verified);
+  // Add all verified codes
+  (db.verified || []).forEach(code => usedCodes.add(code));
   
-  const availableCodes = allCodes.filter(code => 
-    !pulledCodes.has(code) && !verifiedSet.has(code)
-  );
+  // Filter available codes
+  let availableCodes = allPossibleCodes.filter(code => !usedCodes.has(code));
+  
+  // Apply startDigit filter if specified
+  if (startDigit) {
+    availableCodes = availableCodes.filter(code => code[0] === startDigit);
+  }
   
   if (availableCodes.length === 0) {
     alert('No codes available with the specified criteria');
