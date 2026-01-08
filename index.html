@@ -1063,6 +1063,13 @@ function refreshStatus() {
 }
 
 function refreshVerifyTab() {
+  // Safety check
+  if(!db) {
+    hide(el('proposed-vault-section'));
+    hide(el('correct-code-proposal'));
+    return;
+  }
+  
   if(db.proposedVault && db.proposedBy) {
     const confirmationCount = Object.keys(db.vaultConfirmations || {}).length;
     
@@ -1231,7 +1238,22 @@ async function saveVaultDB() {
 function setupRealtimeSync() {
   database.ref('vault').on('value', snapshot => {
     if (snapshot.exists()) {
-      db = snapshot.val();
+      const data = snapshot.val();
+      // Ensure all required properties exist
+      db = {
+        unverified: data.unverified || [],
+        verified: data.verified || [],
+        proposedVault: data.proposedVault || null,
+        proposedBy: data.proposedBy || null,
+        vaultConfirmations: data.vaultConfirmations || {},
+        correctCodeProposal: data.correctCodeProposal || null,
+        correctCodeProposedBy: data.correctCodeProposedBy || null,
+        correctCodeConfirmations: data.correctCodeConfirmations || {},
+        userPulledCodes: data.userPulledCodes || {},
+        userVerifiedHistory: data.userVerifiedHistory || {},
+        activityLogs: data.activityLogs || []
+      };
+      
       refreshStatus();
       refreshVerifyTab();
       populateUserSelect();
@@ -1503,12 +1525,46 @@ async function checkAuth(){
     await loadUsersFromFirebase();
     console.log('Users loaded from Firebase:', Object.keys(users));
     
-    // Load vault data
-    const vaultSnapshot = await database.ref('vault').once('value');
-    if (vaultSnapshot.exists()) {
-      db = vaultSnapshot.val();
-    } else {
-      // Initialize empty db structure if nothing exists
+    // Load vault data with error handling
+    try {
+      const vaultSnapshot = await database.ref('vault').once('value');
+      if (vaultSnapshot.exists()) {
+        const data = vaultSnapshot.val();
+        // Ensure all required properties exist with defaults
+        db = {
+          unverified: data.unverified || [],
+          verified: data.verified || [],
+          proposedVault: data.proposedVault || null,
+          proposedBy: data.proposedBy || null,
+          vaultConfirmations: data.vaultConfirmations || {},
+          correctCodeProposal: data.correctCodeProposal || null,
+          correctCodeProposedBy: data.correctCodeProposedBy || null,
+          correctCodeConfirmations: data.correctCodeConfirmations || {},
+          userPulledCodes: data.userPulledCodes || {},
+          userVerifiedHistory: data.userVerifiedHistory || {},
+          activityLogs: data.activityLogs || []
+        };
+        console.log('Vault data loaded successfully');
+      } else {
+        // Initialize with empty structure
+        db = { 
+          unverified: [], 
+          verified: [], 
+          proposedVault: null, 
+          proposedBy: null, 
+          vaultConfirmations: {}, 
+          correctCodeProposal: null,
+          correctCodeProposedBy: null,
+          correctCodeConfirmations: {},
+          userPulledCodes: {},
+          userVerifiedHistory: {},
+          activityLogs: []
+        };
+        console.log('No vault data found, initialized empty structure');
+      }
+    } catch(vaultError) {
+      console.error('Error loading vault data:', vaultError);
+      // Initialize with empty structure on error
       db = { 
         unverified: [], 
         verified: [], 
