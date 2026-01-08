@@ -1501,7 +1501,7 @@ async function checkAuth(){
     // Load vault data
     const vaultSnapshot = await database.ref('vault').once('value');
     if (vaultSnapshot.exists()) {
-      db = snapshot.val();
+      db = vaultSnapshot.val();
     } else {
       // Initialize empty db structure if nothing exists
       db = { 
