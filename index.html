@@ -632,6 +632,11 @@ el('confirmProposeVault').addEventListener('click', async () => {
 });
 
 el('pullBtn').addEventListener('click', async () => {
+  if (db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2) {
+    alert('Pull codes is disabled. The correct code has been found!');
+    return;
+  }
+  
   const username = el('pull-username').value.trim();
   const amount = parseInt(el('pull-amount').value);
   const startDigit = el('pull-start').value.trim();
@@ -1060,6 +1065,25 @@ function refreshStatus() {
   el('status-total').textContent = total.toLocaleString();
   el('status-verified').textContent = verified.length.toLocaleString();
   el('status-unverified').textContent = unverified.length.toLocaleString();
+
+  // Disable pull codes section if correct code is confirmed
+  const correctCodeConfirmed = db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2;
+  
+  if (correctCodeConfirmed) {
+    el('pullBtn').disabled = true;
+    el('pull-username').disabled = true;
+    el('pull-amount').disabled = true;
+    el('pull-start').disabled = true;
+    el('pull-highlight').disabled = true;
+    el('pull-spacing').disabled = true;
+  } else {
+    el('pullBtn').disabled = false;
+    el('pull-username').disabled = false;
+    el('pull-amount').disabled = false;
+    el('pull-start').disabled = false;
+    el('pull-highlight').disabled = false;
+    el('pull-spacing').disabled = false;
+  }
 }
 
 function refreshVerifyTab() {
