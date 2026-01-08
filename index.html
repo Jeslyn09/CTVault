@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Vault Tool - Highlight · Generator · Admin</title>
+<title>Vault Tool</title>
 <style>
 :root{
   --bg:#0d0f12; --surface:#16191e; --surface-2:#1e2228; --muted:#a8a8a8; --text:#e6e6e6; --accent:#3d7afe; --accent-strong:#6a96ff; --danger:#ff4d4f; --success:#4caf50; --card-border:#24262b; --radius:12px;
@@ -1034,6 +1034,8 @@ el('clearLogsBtn').addEventListener('click', async () => {
 });
 
 function refreshStatus() {
+  if (!db) return; // Add this safety check
+  
   if (db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2) {
     el('vault-title-display').textContent = db.proposedVault.title;
     el('vault-reward-display').textContent = db.proposedVault.reward;
@@ -1495,12 +1497,26 @@ async function checkAuth(){
     // Load users from Firebase
     await loadUsersFromFirebase();
     console.log('Users loaded from Firebase:', Object.keys(users));
-    console.log('Does saved user exist in Firebase?', saved && users[saved] ? 'YES' : 'NO');
     
     // Load vault data
     const vaultSnapshot = await database.ref('vault').once('value');
     if (vaultSnapshot.exists()) {
-      db = vaultSnapshot.val();
+      db = snapshot.val();
+    } else {
+      // Initialize empty db structure if nothing exists
+      db = { 
+        unverified: [], 
+        verified: [], 
+        proposedVault: null, 
+        proposedBy: null, 
+        vaultConfirmations: {}, 
+        correctCodeProposal: null,
+        correctCodeProposedBy: null,
+        correctCodeConfirmations: {},
+        userPulledCodes: {},
+        userVerifiedHistory: {},
+        activityLogs: []
+      };
     }
     
     // Ensure superadmin exists
@@ -1509,28 +1525,29 @@ async function checkAuth(){
       await saveUsersToFirebase();
     }
     
+    // Setup realtime sync BEFORE updating UI
+    setupRealtimeSync();
+    
     // Validate session
     if(saved && users[saved]){
       console.log('✅ Valid session found, logging in as:', saved);
       currentUser = saved;
       currentUserRole = users[saved].role;
       
-      // Setup realtime sync for logged in user
-      setupRealtimeSync();
-      
       // Update UI without showing lock
       updateUIForAuth(false);
-      refreshVerifyTab();
-      refreshStatus();
-      populateUserSelect();
-      renderActivityLogs();
+      
+      // Only call these if we have valid data
+      if(db) {
+        refreshVerifyTab();
+        refreshStatus();
+        populateUserSelect();
+        renderActivityLogs();
+      }
     } else {
       console.log('❌ No valid session, showing login');
       // Clear invalid session
       if(saved) localStorage.removeItem('vaultUser');
-      
-      // Setup realtime sync even when not logged in
-      setupRealtimeSync();
       
       // Show login required
       showLoginRequired();
