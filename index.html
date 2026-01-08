@@ -77,18 +77,15 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
     </div>
 
     <section class="card" id="public">
-      <h3>Welcome to Vault Tool</h3>
-      <p>This is a vault code management system. Login to access all features.</p>
-  
+      <h3>Vault Status</h3>
+        <div style="margin-top:20px;text-align:right">
+        <button class="btn" onclick="openLoginModal()">Login</button>
+      </div>
       <div style="margin-top:20px;padding:16px;background:var(--surface-2);border-radius:8px">
         <h4 style="margin:0 0 12px 0">Current Vault Status</h4>
         <div id="public-vault-info">
           <p class="small">No active vault at the moment.</p>
         </div>
-      </div>
-  
-      <div style="margin-top:20px;text-align:center">
-        <button class="btn" onclick="openLoginModal()">Login to Access Full Features</button>
       </div>
     </section>
     
