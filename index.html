@@ -484,6 +484,14 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     document.querySelectorAll('.card').forEach(card => hide(card));
     show(el(target));
+    
+    // Refresh the verify tab when switching to it
+    if (target === 'verify') {
+      const selectedUser = el('user-select').value;
+      if (selectedUser) {
+        renderUserCodes(selectedUser);
+      }
+    }
   });
 });
 
@@ -1033,6 +1041,8 @@ el('user-select').addEventListener('change', () => {
   if (username) {
     show(el('user-codes-section'));
     el('selected-username').textContent = username;
+    currentUnverifiedPage = 1; // Reset to page 1
+    currentVerifiedPage = 1; // Reset to page 1
     renderUserCodes(username);
   } else {
     hide(el('user-codes-section'));
