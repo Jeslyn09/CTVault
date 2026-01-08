@@ -1486,10 +1486,10 @@ window.changePassword = changePassword;
 
 async function checkAuth(){
   try {
-    // Don't show lock screen immediately on page load
-    const saved = localStorage.getItem('vaultUser'); // Changed from localStorage
+    // Get saved session FIRST
+    const saved = localStorage.getItem('vaultUser');
     
-    // Load users from Firebase first
+    // Load users from Firebase
     await loadUsersFromFirebase();
     
     // Load vault data
@@ -1504,14 +1504,15 @@ async function checkAuth(){
       await saveUsersToFirebase();
     }
     
-    // Setup realtime sync AFTER initial load
-    setupRealtimeSync();
-    
-    // Now validate and update UI
+    // Validate session
     if(saved && users[saved]){
       currentUser = saved;
       currentUserRole = users[saved].role;
-      hideLoginRequired(); // Explicitly hide lock screen
+      
+      // Setup realtime sync for logged in user
+      setupRealtimeSync();
+      
+      // Update UI without showing lock
       updateUIForAuth(false);
       refreshVerifyTab();
       refreshStatus();
@@ -1519,7 +1520,12 @@ async function checkAuth(){
       renderActivityLogs();
     } else {
       // Clear invalid session
-      if(saved) localStorage.removeItem('vaultUser'); // Changed from localStorage
+      if(saved) localStorage.removeItem('vaultUser');
+      
+      // Setup realtime sync even when not logged in
+      setupRealtimeSync();
+      
+      // Show login required
       showLoginRequired();
     }
     
@@ -1529,14 +1535,19 @@ async function checkAuth(){
   }
 }
 
+// Prevent flash of login screen - hide body until auth completes
+document.body.style.visibility = 'hidden';
+
 // Make sure DOM is loaded before running
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    // Don't show lock screen until auth check completes
-    checkAuth();
+  document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuth();
+    document.body.style.visibility = 'visible';
   });
 } else {
-  checkAuth();
+  checkAuth().then(() => {
+    document.body.style.visibility = 'visible';
+  });
 }
 
   } // End of initApp
