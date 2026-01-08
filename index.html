@@ -925,13 +925,13 @@ el('searchCodeBtn').addEventListener('click', () => {
 
 // ADD this event listener for proposing correct code:
 el('proposeCorrectCodeBtn').addEventListener('click', async () => {
+  const input = el('correct-code-input').value.trim();
+  const code = input.replace(/[^0-9]/g, '');
+  
   if (!currentUser) {
     alert('Please login to propose correct code');
     return;
   }
-  
-  const input = el('correct-code-input').value.trim();
-  const code = input.replace(/[^0-9]/g, '');
   
   if (!code) {
     alert('Please enter a valid code');
@@ -970,6 +970,49 @@ el('proposeCorrectCodeBtn').addEventListener('click', async () => {
     refreshStatus();
   }
 });
+
+// NEW: Global function to propose correct code from individual code list
+window.proposeCorrectCodeFromList = async function(code) {
+  if (!currentUser) {
+    alert('Please login to propose correct code');
+    return;
+  }
+  
+  if (!db.proposedVault || Object.keys(db.vaultConfirmations || {}).length < 2) {
+    alert('No active vault to propose code for');
+    return;
+  }
+  
+  // Check if a correct code has already been proposed
+  if (db.correctCodeProposal) {
+    alert('A correct code has already been proposed. Check the verification section above.');
+    return;
+  }
+  
+  // Confirm with user
+  if (confirm(`Propose "${code.split('').join(', ')}" as the correct vault code?\n\nThis requires 2 confirmations from other users.`)) {
+    db.correctCodeProposal = code;
+    db.correctCodeProposedBy = currentUser;
+    db.correctCodeConfirmations = {};
+    
+    await saveVaultDB();
+    addActivityLog('Proposed Correct Code', code.split('').join(', '));
+    
+    alert('Correct code proposed! Requires 2 confirmations from other users. Check the Verify tab.');
+    
+    // Switch to verify tab to show the proposal
+    const verifyTab = document.querySelector('.tab[data-tab="verify"]');
+    if(verifyTab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      verifyTab.classList.add('active');
+      document.querySelectorAll('.card').forEach(card => hide(card));
+      show(el('verify'));
+    }
+    
+    refreshVerifyTab();
+    refreshStatus();
+  }
+};
 
 function populateUserSelect() {
   const select = el('user-select');
@@ -1020,8 +1063,9 @@ function renderUserCodes(username) {
           <strong>${item.code.split('').join(', ')}</strong>
           <div class="small">${new Date(item.timestamp).toLocaleString()}</div>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn small" onclick="verifyCode('${username}', '${item.code}')">Verify</button>
+          <button class="btn small" style="background:var(--success)" onclick="proposeCorrectCodeFromList('${item.code}')">Correct Code</button>
           <button class="btn ghost small" onclick="redistributeCode('${username}', '${item.code}')">Redistribute</button>
         </div>
       </div>
