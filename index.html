@@ -68,13 +68,30 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
 <main class="container">
   <div class="left">
     <div class="tabs" id="mainTabs">
-      <button class="tab active" data-tab="highlighter">Highlight & Spacing</button>
-      <button class="tab" data-tab="generator">Vault Generator</button>
-      <button class="tab" data-tab="status">Codes & Status</button>
-      <button class="tab" data-tab="verify">Verify</button>
+      <button class="tab active" data-tab="public">Vault Status</button>
+      <button class="tab hidden" data-tab="highlighter">Highlight & Spacing</button>
+      <button class="tab hidden" data-tab="generator">Vault Generator</button>
+      <button class="tab hidden" data-tab="status">Codes & Status</button>
+      <button class="tab hidden" data-tab="verify">Verify</button>
       <button class="tab hidden" id="usersTab" data-tab="users">Users</button>
     </div>
 
+    <section class="card" id="public">
+      <h3>Welcome to Vault Tool</h3>
+      <p>This is a vault code management system. Login to access all features.</p>
+  
+      <div style="margin-top:20px;padding:16px;background:var(--surface-2);border-radius:8px">
+        <h4 style="margin:0 0 12px 0">Current Vault Status</h4>
+        <div id="public-vault-info">
+          <p class="small">No active vault at the moment.</p>
+        </div>
+      </div>
+  
+      <div style="margin-top:20px;text-align:center">
+        <button class="btn" onclick="openLoginModal()">Login to Access Full Features</button>
+      </div>
+    </section>
+    
     <section class="card" id="highlighter">
       <h3>Highlight & Spacing</h3>
       <textarea id="inputBox" placeholder="Paste number combos or codes..." rows="6"></textarea>
@@ -1122,6 +1139,12 @@ function refreshStatus() {
   if (typeof refreshActiveVaultControls === 'function') {
     refreshActiveVaultControls();
   }
+    if (typeof refreshActiveVaultControls === 'function') {
+    refreshActiveVaultControls();
+  }
+  
+  // ADD THIS NEW LINE:
+  updatePublicVaultInfo();
 }
 
 function refreshActiveVaultControls() {
@@ -1403,7 +1426,6 @@ function setupRealtimeSync() {
   database.ref('vault').on('value', snapshot => {
     if (snapshot.exists()) {
       const data = snapshot.val();
-      // Ensure all required properties exist
       db = {
         unverified: data.unverified || [],
         verified: data.verified || [],
@@ -1422,7 +1444,8 @@ function setupRealtimeSync() {
       refreshVerifyTab();
       populateUserSelect();
       renderActivityLogs();
-      refreshActiveVaultControls(); // ADD THIS LINE
+      refreshActiveVaultControls();
+      updatePublicVaultInfo(); // ADD THIS LINE
       const selectedUser = el('user-select').value;
       if (selectedUser) {
         renderUserCodes(selectedUser);
@@ -1506,6 +1529,13 @@ function updateUIForAuth(showLockIfNeeded = true){
     show(el('logoutBtn')); 
     hide(el('loginBtn'));
     
+    // Show all tabs when logged in
+    document.querySelectorAll('.tab').forEach(tab => {
+      if(tab.dataset.tab !== 'public') {
+        tab.classList.remove('hidden');
+      }
+    });
+    
     if(currentUserRole==='admin' || currentUserRole==='superadmin'){ 
       show(el('adminPanel')); 
       el('usersTab').classList.remove('hidden'); 
@@ -1515,52 +1545,100 @@ function updateUIForAuth(showLockIfNeeded = true){
     } 
   } else {
     if(showLockIfNeeded) {
-      showLoginRequired();
+      // Don't show login required screen, just hide tabs
+      document.body.classList.remove('locked');
+      const lock = el('lockMsg');
+      if(lock) lock.remove();
     }
-    ui.innerHTML = ``; 
+    
+    ui.innerHTML = `<button class="btn" onclick="openLoginModal()">Login</button>`; 
     account.innerHTML = '<p class="small">Not logged in</p>';
     
     show(el('loginBtn')); 
     hide(el('logoutBtn'));
     
+    // Hide all tabs except public when not logged in
+    document.querySelectorAll('.tab').forEach(tab => {
+      if(tab.dataset.tab !== 'public') {
+        tab.classList.add('hidden');
+      } else {
+        tab.classList.remove('hidden');
+      }
+    });
+    
+    // Switch to public tab if on a private tab
+    const activeTabs = document.querySelectorAll('.tab.active');
+    activeTabs.forEach(tab => {
+      if(tab.dataset.tab !== 'public') {
+        tab.classList.remove('active');
+        document.querySelectorAll('.card').forEach(card => hide(card));
+        
+        const publicTab = document.querySelector('.tab[data-tab="public"]');
+        if(publicTab) {
+          publicTab.classList.add('active');
+          show(el('public'));
+        }
+      }
+    });
+    
     hide(el('adminPanel')); 
     el('usersTab').classList.add('hidden'); 
   }
+  
+  // Update public vault info
+  updatePublicVaultInfo();
 }
-
-function getRoleDisplayName(role){ 
-  if(role==='superadmin') return 'Admin'; 
-  if(role==='admin') return 'Vault Admin'; 
-  if(role==='monkey') return 'Vault Monkey'; 
-  return role; 
-}
-
-el('confirmLogin').addEventListener('click', ()=>{
-  const u = el('loginUsername').value.trim(); 
-  const p = el('loginPassword').value;
-  if(users[u] && users[u].password===p){ 
-    currentUser = u; 
-    currentUserRole = users[u].role; 
-    localStorage.setItem('vaultUser', u); 
-    closeLoginModal(); 
-    updateUIForAuth();
-    refreshVerifyTab();
-    addActivityLog('User Login', `${u} logged in`);
-    el('loginError').style.display='none';
-  } else { 
-    el('loginError').style.display='block'; 
-    el('loginError').innerText='Invalid username or password'; 
+    
+function updatePublicVaultInfo() {
+  const publicInfo = el('public-vault-info');
+  if(!publicInfo) return;
+  
+  const vaultConfirmed = db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2;
+  const correctCodeConfirmed = db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2;
+  
+  if(vaultConfirmed) {
+    const totalCodes = (db.unverified || []).length + (db.verified || []).length;
+    const verifiedCount = (db.verified || []).length;
+    const unverifiedCount = (db.unverified || []).length;
+    
+    let statusHTML = `
+      <div style="margin-bottom:12px">
+        <strong style="font-size:20px;color:var(--accent)">${db.proposedVault.title}</strong>
+      </div>
+      <div style="margin-bottom:8px">
+        <strong>Reward:</strong> <span style="color:var(--success)">${db.proposedVault.reward}</span>
+      </div>
+      <div style="margin-bottom:8px">
+        <strong>Total Codes:</strong> ${totalCodes.toLocaleString()}
+      </div>
+      <div style="margin-bottom:8px">
+        <strong>Verified:</strong> ${verifiedCount.toLocaleString()} | 
+        <strong>Unverified:</strong> ${unverifiedCount.toLocaleString()}
+      </div>
+    `;
+    
+    if(correctCodeConfirmed) {
+      statusHTML += `
+        <div style="margin-top:16px;padding:12px;background:var(--success);color:white;border-radius:8px;text-align:center">
+          <strong>🎉 VAULT CRACKED!</strong>
+          <div style="margin-top:8px;font-family:monospace;font-size:18px">
+            ${db.correctCodeProposal.split('').join(', ')}
+          </div>
+        </div>
+      `;
+    } else {
+      statusHTML += `
+        <div style="margin-top:16px;padding:12px;background:var(--accent);color:white;border-radius:8px;text-align:center">
+          <strong>🔒 Vault Active - Not Cracked Yet</strong>
+        </div>
+      `;
+    }
+    
+    publicInfo.innerHTML = statusHTML;
+  } else {
+    publicInfo.innerHTML = '<p class="small" style="color:var(--muted)">No active vault at the moment.</p>';
   }
-});
-
-el('loginBtn').addEventListener('click', openLoginModal);
-el('logoutBtn').addEventListener('click', ()=>{ 
-  addActivityLog('User Logout', `${currentUser} logged out`);
-  currentUser=null; 
-  currentUserRole=null; 
-  localStorage.removeItem('vaultUser'); 
-  updateUIForAuth(true); // <-- FIX: Add the parameter!
-});
+}
 
 function showLoginRequired(){ 
   document.body.classList.add('locked'); 
@@ -1774,15 +1852,10 @@ async function checkAuth(){
       console.log('❌ No valid session, showing login');
       // Clear invalid session
       if(saved) localStorage.removeItem('vaultUser');
-      
-      // Show login required
-      showLoginRequired();
+  
+      // Don't show login required - just show public tab
+      updateUIForAuth(false); // CHANGE THIS LINE
     }
-    
-  } catch(error) {
-    console.error('Auth error:', error);
-    showLoginRequired();
-  }
 }
 
 // Prevent flash of login screen - hide body until auth completes
