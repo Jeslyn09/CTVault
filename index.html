@@ -286,7 +286,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
         <div id="search-result" style="margin-top:8px;padding:8px;background:var(--surface-2);border-radius:8px;display:none"></div>
       </div>
 
-      <h2 style="margin-bottom:12px">Users:</h2>
+<h2 style="margin-bottom:12px">Users:</h2>
       <select id="user-select" style="margin-bottom:16px">
         <option value="">Select a user...</option>
       </select>
@@ -306,17 +306,23 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
         <h3 style="margin-bottom:12px">Pulled Unverified Codes</h3>
         <div id="user-codes-list"></div>
         <div id="unverified-pagination" class="pagination"></div>
-
-        <div class="search-box">
-          <h3 style="margin:0 0 8px 0">Search Codes</h3>
-          <input id="code-search" placeholder="Search by code..." style="margin-bottom:0" />
-        </div>
-
-        <h3 style="margin:20px 0 12px 0">Verified Code History</h3>
-        <div id="user-verified-list"></div>
-        <div id="verified-pagination" class="pagination"></div>
       </div>
+
+      <!-- Separate section for verified user history search -->
+      <div class="search-box" style="margin-top:24px">
+        <h3 style="margin:0 0 8px 0">Search Codes History per User</h3>
+        <select id="verified-user-select" style="margin-bottom:8px">
+          <option value="">Select a user...</option>
+        </select>
+        <input id="code-search" placeholder="Search by code..." style="margin-bottom:0;display:none" />
+      </div>
+
+      <h3 style="margin:20px 0 12px 0;display:none" id="verified-history-title">Verified Code History</h3>
+      <div id="user-verified-list"></div>
+      <div id="verified-pagination" class="pagination"></div>
     </section>
+
+ 
 
     <section class="card" id="users" style="display:none">
       <h3>Login & Account</h3>
@@ -543,6 +549,10 @@ function updateHighlighter() {
 el('inputBox').addEventListener('input', updateHighlighter);
 el('styleOption').addEventListener('change', updateHighlighter);
 el('spaceOption').addEventListener('change', updateHighlighter);
+
+el('pull-username').addEventListener('input', function(e) {
+  this.value = this.value.toLowerCase();
+});
 
 el('copyBtn').addEventListener('click', async () => {
   const text = el('output').textContent;
@@ -910,10 +920,27 @@ el('searchCodeBtn').addEventListener('click', () => {
   const resultDiv = el('search-result');
   
   if (db.unverified.includes(searchCode)) {
-    resultDiv.innerHTML = '<strong>Status:</strong> Unverified (Available)';
+    resultDiv.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <strong>Status:</strong> Unverified (Available)
+        </div>
+        <button class="btn small" onclick="verifySearchedCode('${searchCode}')">Verify</button>
+      </div>
+    `;
     resultDiv.style.color = 'var(--accent)';
   } else if (db.verified.includes(searchCode)) {
-    resultDiv.innerHTML = '<strong>Status:</strong> Verified';
+    resultDiv.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <strong>Status:</strong> Verified
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn small" style="background:var(--success)" onclick="proposeCorrectCodeFromSearch('${searchCode}')">Correct Code</button>
+          <button class="btn ghost small" onclick="redistributeSearchedCode('${searchCode}')">Redistribute</button>
+        </div>
+      </div>
+    `;
     resultDiv.style.color = 'var(--success)';
   } else {
     let found = false;
@@ -933,6 +960,118 @@ el('searchCodeBtn').addEventListener('click', () => {
   
   show(resultDiv);
 });
+
+// Verify a searched code
+window.verifySearchedCode = async function(code) {
+  if (!currentUser) {
+    alert('Please login to verify codes');
+    return;
+  }
+  
+  db.unverified = db.unverified.filter(c => c !== code);
+  db.verified.push(code);
+  
+  // Add to a generic "search verified" history if you want to track who verified it
+  const username = currentUser;
+  if (!db.userVerifiedHistory[username]) {
+    db.userVerifiedHistory[username] = [];
+  }
+  db.userVerifiedHistory[username].push({ 
+    code, 
+    timestamp: Date.now(),
+    vaultId: db.currentVaultId 
+  });
+  
+  await saveVaultDB();
+  addActivityLog('Verified Code (Search)', `${username}: ${code}`);
+  
+  // Re-search to update the display
+  el('searchCodeBtn').click();
+  refreshStatus();
+  updateRankings();
+};
+
+// Propose correct code from search
+window.proposeCorrectCodeFromSearch = async function(code) {
+  if (!currentUser) {
+    alert('Please login to propose correct code');
+    return;
+  }
+  
+  if (!db.proposedVault || Object.keys(db.vaultConfirmations || {}).length < 2) {
+    alert('No active vault to propose code for');
+    return;
+  }
+  
+  if (db.correctCodeProposal) {
+    alert('A correct code has already been proposed. Check the verification section above.');
+    return;
+  }
+  
+  if (confirm(`Propose "${code.split('').join(', ')}" as the correct vault code?\n\nThis requires 2 confirmations from other users.`)) {
+    db.correctCodeProposal = code;
+    db.correctCodeProposedBy = currentUser;
+    db.correctCodeConfirmations = {};
+    
+    await saveVaultDB();
+    addActivityLog('Proposed Correct Code', code.split('').join(', '));
+    
+    alert('Correct code proposed! Requires 2 confirmations from other users. Check the Verify tab.');
+    
+    // Switch to verify tab
+    const verifyTab = document.querySelector('.tab[data-tab="verify"]');
+    if(verifyTab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      verifyTab.classList.add('active');
+      document.querySelectorAll('.card').forEach(card => hide(card));
+      show(el('verify'));
+    }
+    
+    refreshVerifyTab();
+    refreshStatus();
+  }
+};
+
+// Redistribute a verified code back to unverified
+window.redistributeSearchedCode = async function(code) {
+  if (!currentUser) {
+    alert('Please login to redistribute codes');
+    return;
+  }
+  
+  if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+    alert('Only admins can redistribute verified codes');
+    return;
+  }
+  
+  if (confirm(`Redistribute code "${code.split('').join(', ')}" back to unverified pool?\n\nThis will remove it from verified history.`)) {
+    // Remove from verified
+    db.verified = db.verified.filter(c => c !== code);
+    
+    // Add back to unverified
+    db.unverified.push(code);
+    
+    // Remove from all user histories for this vault
+    const currentVaultId = db.currentVaultId;
+    for (let username in db.userVerifiedHistory) {
+      db.userVerifiedHistory[username] = (db.userVerifiedHistory[username] || [])
+        .filter(entry => !(entry.code === code && entry.vaultId === currentVaultId));
+      
+      // Clean up empty histories
+      if (db.userVerifiedHistory[username].length === 0) {
+        delete db.userVerifiedHistory[username];
+      }
+    }
+    
+    await saveVaultDB();
+    addActivityLog('Redistributed Code (Search)', `${code} moved back to unverified`);
+    
+    // Re-search to update the display
+    el('searchCodeBtn').click();
+    refreshStatus();
+    updateRankings();
+  }
+};
 
 // ADD this event listener for proposing correct code:
 el('proposeCorrectCodeBtn').addEventListener('click', async () => {
@@ -1049,6 +1188,99 @@ el('user-select').addEventListener('change', () => {
     renderUserCodes(username);
   } else {
     hide(el('user-codes-section'));
+  }
+});
+
+function populateVerifiedUserSelect() {
+  const select = el('verified-user-select');
+  select.innerHTML = '<option value="">Select a user...</option>';
+  
+  const currentVaultId = db.currentVaultId;
+  
+  for (let username in db.userVerifiedHistory) {
+    // Only show users with verified codes in current vault
+    const vaultCodes = (db.userVerifiedHistory[username] || [])
+      .filter(entry => entry.vaultId === currentVaultId);
+    
+    if (vaultCodes.length > 0) {
+      const opt = document.createElement('option');
+      opt.value = username;
+      opt.textContent = `${username} (${vaultCodes.length} verified)`;
+      select.appendChild(opt);
+    }
+  }
+}
+
+// Event listener for verified user select
+el('verified-user-select').addEventListener('change', () => {
+  const username = el('verified-user-select').value;
+  
+  if (username) {
+    // Show code search and history title
+    show(el('code-search'));
+    show(el('verified-history-title'));
+    
+    // Reset search
+    el('code-search').value = '';
+    
+    // Show verified history for this user
+    currentVerifiedPage = 1;
+    showVerifiedHistoryForUser(username);
+  } else {
+    // Hide when no user selected
+    hide(el('code-search'));
+    hide(el('verified-history-title'));
+    el('user-verified-list').innerHTML = '';
+    el('verified-pagination').innerHTML = '';
+  }
+});
+
+// New function to show verified history without unverified codes
+function showVerifiedHistoryForUser(username) {
+  const currentVaultId = db.currentVaultId;
+  const allVerified = db.userVerifiedHistory[username] || [];
+  const verified = currentVaultId 
+    ? allVerified.filter(entry => entry.vaultId === currentVaultId)
+    : [];
+  
+  // Apply search filter if exists
+  const searchTerm = el('code-search').value.toLowerCase();
+  filteredVerifiedCodes = searchTerm 
+    ? verified.filter(item => item.code.includes(searchTerm))
+    : verified;
+  
+  const list = el('user-verified-list');
+  list.innerHTML = '';
+  
+  if (filteredVerifiedCodes.length === 0) {
+    list.innerHTML = '<p class="small" style="color:var(--muted);padding:8px">No verified codes found.</p>';
+    el('verified-pagination').innerHTML = '';
+    return;
+  }
+  
+  const start = (currentVerifiedPage - 1) * ITEMS_PER_PAGE;
+  const end = start + ITEMS_PER_PAGE;
+  const pageCodes = filteredVerifiedCodes.slice(start, end);
+  
+  pageCodes.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'activity-log';
+    div.innerHTML = `
+      <strong>${item.code.split('').join(', ')}</strong>
+      <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+    `;
+    list.appendChild(div);
+  });
+  
+  renderPagination('verified', filteredVerifiedCodes.length);
+}
+
+// Update code search to work with verified history
+el('code-search').addEventListener('input', () => {
+  const username = el('verified-user-select').value;
+  if (username) {
+    currentVerifiedPage = 1;
+    showVerifiedHistoryForUser(username);
   }
 });
 
@@ -1471,6 +1703,7 @@ function refreshStatus() {
   }
   
   updatePublicVaultInfo();
+  populateVerifiedUserSelect();
 }
 
 function refreshActiveVaultControls() {
