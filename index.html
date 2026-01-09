@@ -462,6 +462,27 @@ function getRoleDisplayName(role) {
   }
 }
 
+// ADD these helper functions at the top with other utility functions
+function sanitizeUsername(username) {
+  // Replace dots and other special characters that might cause issues
+  return username.replace(/\./g, '_dot_')
+                 .replace(/\$/g, '_dollar_')
+                 .replace(/\#/g, '_hash_')
+                 .replace(/\[/g, '_lbracket_')
+                 .replace(/\]/g, '_rbracket_')
+                 .replace(/\//g, '_slash_');
+}
+
+function unsanitizeUsername(sanitized) {
+  // Reverse the sanitization for display
+  return sanitized.replace(/_dot_/g, '.')
+                  .replace(/_dollar_/g, '$')
+                  .replace(/_hash_/g, '#')
+                  .replace(/_lbracket_/g, '[')
+                  .replace(/_rbracket_/g, ']')
+                  .replace(/_slash_/g, '/');
+}
+
 // Modal functions - exposed globally
 function openLoginModal(){ openModal('loginModal'); }
 function closeLoginModal(){ closeModal('loginModal'); }
@@ -788,7 +809,7 @@ el('confirmVaultBtn').addEventListener('click', async () => {
   }
 });
 
-// REPLACE the el('pullBtn').addEventListener section with this:
+// REPLACE the entire el('pullBtn').addEventListener section
 el('pullBtn').addEventListener('click', async () => {
   if (db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2) {
     alert('Pull codes is disabled. The correct code has been found!');
@@ -802,6 +823,7 @@ el('pullBtn').addEventListener('click', async () => {
   }
   
   const username = el('pull-username').value.trim();
+  const sanitizedUsername = sanitizeUsername(username);  // SANITIZE USERNAME
   const amount = parseInt(el('pull-amount').value);
   const startDigit = el('pull-start').value.trim();
   const highlight = el('pull-highlight').value;
@@ -817,8 +839,8 @@ el('pullBtn').addEventListener('click', async () => {
     return;
   }
   
-  // NEW: Check if user has unverified codes
-  const userUnverifiedCodes = db.userPulledCodes[username] || [];
+  // Use sanitized username for checking
+  const userUnverifiedCodes = db.userPulledCodes[sanitizedUsername] || [];
   if (userUnverifiedCodes.length > 0) {
     alert(`${username} still has ${userUnverifiedCodes.length} unverified codes. Please verify or redistribute them before pulling new codes.`);
     return;
@@ -857,11 +879,15 @@ el('pullBtn').addEventListener('click', async () => {
   
   const codesToPull = availableCodes.slice(0, Math.min(amount, availableCodes.length));
   
-  if (!db.userPulledCodes[username]) {
-    db.userPulledCodes[username] = [];
+  if (!db.userPulledCodes[sanitizedUsername]) {
+    db.userPulledCodes[sanitizedUsername] = [];
   }
   
-  db.userPulledCodes[username].push(...codesToPull.map(c => ({ code: c, timestamp: Date.now() })));
+  db.userPulledCodes[sanitizedUsername].push(...codesToPull.map(c => ({ 
+    code: c, 
+    timestamp: Date.now(),
+    originalUsername: username  // Store original username for display
+  })));
   
   await saveVaultDB();
   
@@ -874,7 +900,7 @@ el('pullBtn').addEventListener('click', async () => {
     let result;
   
     if (highlight === 'none' || index === 0) {
-      result = digits.join(' ');  // ← Changed from ',' to ' '
+      result = digits.join(' ');
     } else {
       result = digits.map((d, idx) => {
        const shouldHighlight = !previousDigits || previousDigits[idx] !== d;
@@ -883,7 +909,7 @@ el('pullBtn').addEventListener('click', async () => {
           if (highlight === 'underline') return `__${d}__`;
         }
         return d;
-      }).join(' ');  // ← Changed from ',' to ' '
+      }).join(' ');
     }
   
     previousDigits = digits;
@@ -1164,15 +1190,18 @@ window.proposeCorrectCodeFromList = async function(code) {
   }
 };
 
+// REPLACE the populateUserSelect function
 function populateUserSelect() {
   const select = el('user-select');
   select.innerHTML = '<option value="">Select a user...</option>';
   
-  for (let username in db.userPulledCodes) {
-    if (db.userPulledCodes[username].length > 0) {
+  for (let sanitizedUsername in db.userPulledCodes) {
+    if (db.userPulledCodes[sanitizedUsername].length > 0) {
+      // Get original username from first code entry
+      const originalUsername = db.userPulledCodes[sanitizedUsername][0].originalUsername || unsanitizeUsername(sanitizedUsername);
       const opt = document.createElement('option');
-      opt.value = username;
-      opt.textContent = `${username} (${db.userPulledCodes[username].length} codes)`;
+      opt.value = sanitizedUsername;  // Use sanitized as value
+      opt.textContent = `${originalUsername} (${db.userPulledCodes[sanitizedUsername].length} codes)`;
       select.appendChild(opt);
     }
   }
@@ -1292,16 +1321,23 @@ el('code-search').addEventListener('input', () => {
   }
 });
 
-function renderUserCodes(username) {
-  const codes = db.userPulledCodes[username] || [];
+// REPLACE the renderUserCodes function
+function renderUserCodes(sanitizedUsername) {
+  const codes = db.userPulledCodes[sanitizedUsername] || [];
+  
+  // Get original username
+  const originalUsername = codes.length > 0 && codes[0].originalUsername 
+    ? codes[0].originalUsername 
+    : unsanitizeUsername(sanitizedUsername);
   
   // Filter verified count to only show current vault
   const currentVaultId = db.currentVaultId;
-  const verifiedCount = currentVaultId && db.userVerifiedHistory[username] 
-    ? db.userVerifiedHistory[username].filter(entry => entry.vaultId === currentVaultId).length 
+  const verifiedCount = currentVaultId && db.userVerifiedHistory[sanitizedUsername] 
+    ? db.userVerifiedHistory[sanitizedUsername].filter(entry => entry.vaultId === currentVaultId).length 
     : 0;
   
   el('user-verified-count').textContent = verifiedCount;
+  el('selected-username').textContent = originalUsername;  // Show original username
   
   const list = el('user-codes-list');
   list.innerHTML = '';
@@ -1322,9 +1358,9 @@ function renderUserCodes(username) {
           <div class="small">${new Date(item.timestamp).toLocaleString()}</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn small" onclick="verifyCode('${username}', '${item.code}')">Verify</button>
+          <button class="btn small" onclick="verifyCode('${sanitizedUsername}', '${item.code}')">Verify</button>
           <button class="btn small" style="background:var(--success)" onclick="proposeCorrectCodeFromList('${item.code}')">Correct Code</button>
-          <button class="btn ghost small" onclick="redistributeCode('${username}', '${item.code}')">Redistribute</button>
+          <button class="btn ghost small" onclick="redistributeCode('${sanitizedUsername}', '${item.code}')">Redistribute</button>
         </div>
       </div>
     `;
@@ -1332,7 +1368,7 @@ function renderUserCodes(username) {
   });
   
   renderPagination('unverified', codes.length);
-  renderVerifiedHistory(username);
+  renderVerifiedHistory(sanitizedUsername);
 }
 
 function renderVerifiedHistory(username) {
@@ -1426,22 +1462,29 @@ function renderPagination(type, total) {
   }
 }
 
-window.verifyCode = async function(username, code) {
-  db.userPulledCodes[username] = db.userPulledCodes[username].filter(c => c.code !== code);
+// REPLACE the window.verifyCode function
+window.verifyCode = async function(sanitizedUsername, code) {
+  const codes = db.userPulledCodes[sanitizedUsername] || [];
+  const originalUsername = codes.length > 0 && codes[0].originalUsername 
+    ? codes[0].originalUsername 
+    : unsanitizeUsername(sanitizedUsername);
+  
+  db.userPulledCodes[sanitizedUsername] = db.userPulledCodes[sanitizedUsername].filter(c => c.code !== code);
   db.verified.push(code);
   
-  if (!db.userVerifiedHistory[username]) {
-    db.userVerifiedHistory[username] = [];
+  if (!db.userVerifiedHistory[sanitizedUsername]) {
+    db.userVerifiedHistory[sanitizedUsername] = [];
   }
-  db.userVerifiedHistory[username].push({ 
+  db.userVerifiedHistory[sanitizedUsername].push({ 
     code, 
     timestamp: Date.now(),
-    vaultId: db.currentVaultId
- });
+    vaultId: db.currentVaultId,
+    originalUsername: originalUsername  // Store original username
+  });
   
   await saveVaultDB();
-  addActivityLog('Verified Code', `${username}: ${code}`);
-  renderUserCodes(username);
+  addActivityLog('Verified Code', `${originalUsername}: ${code}`);
+  renderUserCodes(sanitizedUsername);
   refreshStatus();
   populateUserSelect();
 };
@@ -1481,13 +1524,19 @@ window.removeFromRankings = async function(username) {
   alert(`${username} has been removed from current vault rankings`);
 };
 
-window.redistributeCode = async function(username, code) {
-  db.userPulledCodes[username] = db.userPulledCodes[username].filter(c => c.code !== code);
+// REPLACE the window.redistributeCode function
+window.redistributeCode = async function(sanitizedUsername, code) {
+  const codes = db.userPulledCodes[sanitizedUsername] || [];
+  const originalUsername = codes.length > 0 && codes[0].originalUsername 
+    ? codes[0].originalUsername 
+    : unsanitizeUsername(sanitizedUsername);
+  
+  db.userPulledCodes[sanitizedUsername] = db.userPulledCodes[sanitizedUsername].filter(c => c.code !== code);
   db.unverified.push(code);
   
   await saveVaultDB();
-  addActivityLog('Redistributed Code', `${username}: ${code}`);
-  renderUserCodes(username);
+  addActivityLog('Redistributed Code', `${originalUsername}: ${code}`);
+  renderUserCodes(sanitizedUsername);
   refreshStatus();
   populateUserSelect();
 };
@@ -1534,52 +1583,61 @@ window.redistributeVerifiedCode = async function(username, code) {
   }
 };
 
+// REPLACE the el('verifyAllBtn').addEventListener section
 el('verifyAllBtn').addEventListener('click', async () => {
-  const username = el('user-select').value;
-  if (!username) return;
+  const sanitizedUsername = el('user-select').value;
+  if (!sanitizedUsername) return;
   
-  if (confirm(`Verify all codes for ${username}?`)) {
-    const codes = db.userPulledCodes[username] || [];
-    
+  const codes = db.userPulledCodes[sanitizedUsername] || [];
+  const originalUsername = codes.length > 0 && codes[0].originalUsername 
+    ? codes[0].originalUsername 
+    : unsanitizeUsername(sanitizedUsername);
+  
+  if (confirm(`Verify all codes for ${originalUsername}?`)) {
     codes.forEach(item => {
       db.verified.push(item.code);
-      if (!db.userVerifiedHistory[username]) {
-        db.userVerifiedHistory[username] = [];
+      if (!db.userVerifiedHistory[sanitizedUsername]) {
+        db.userVerifiedHistory[sanitizedUsername] = [];
       }
-      db.userVerifiedHistory[username].push({ 
+      db.userVerifiedHistory[sanitizedUsername].push({ 
         code: item.code, 
         timestamp: Date.now(),
-        vaultId: db.currentVaultId 
+        vaultId: db.currentVaultId,
+        originalUsername: originalUsername  // Store original username
       });
     });
     
-    db.userPulledCodes[username] = [];
+    db.userPulledCodes[sanitizedUsername] = [];
     
     await saveVaultDB();
-    addActivityLog('Verified All', `${username}: ${codes.length} codes`);
-    renderUserCodes(username);
+    addActivityLog('Verified All', `${originalUsername}: ${codes.length} codes`);
+    renderUserCodes(sanitizedUsername);
     refreshStatus();
     populateUserSelect();
     updateRankings();
   }
 });
 
+// REPLACE the el('redistributeAllBtn').addEventListener section
 el('redistributeAllBtn').addEventListener('click', async () => {
-  const username = el('user-select').value;
-  if (!username) return;
+  const sanitizedUsername = el('user-select').value;
+  if (!sanitizedUsername) return;
   
-  if (confirm(`Redistribute all codes for ${username}?`)) {
-    const codes = db.userPulledCodes[username] || [];
-    
+  const codes = db.userPulledCodes[sanitizedUsername] || [];
+  const originalUsername = codes.length > 0 && codes[0].originalUsername 
+    ? codes[0].originalUsername 
+    : unsanitizeUsername(sanitizedUsername);
+  
+  if (confirm(`Redistribute all codes for ${originalUsername}?`)) {
     codes.forEach(item => {
       db.unverified.push(item.code);
     });
     
-    db.userPulledCodes[username] = [];
+    db.userPulledCodes[sanitizedUsername] = [];
     
     await saveVaultDB();
-    addActivityLog('Redistributed All', `${username}: ${codes.length} codes`);
-    renderUserCodes(username);
+    addActivityLog('Redistributed All', `${originalUsername}: ${codes.length} codes`);
+    renderUserCodes(sanitizedUsername);
     refreshStatus();
     populateUserSelect();
   }
@@ -2316,6 +2374,7 @@ function updatePublicVaultInfo() {
   }
 }
 
+// REPLACE the updateRankings function
 function updateRankings() {
   const rankingsList = el('rankings-list');
   if(!rankingsList) return;
@@ -2330,12 +2389,14 @@ function updateRankings() {
   }
   
   // Calculate stats only for current vault
-  for(let username in db.userVerifiedHistory) {
-    const vaultSpecificCodes = (db.userVerifiedHistory[username] || [])
+  for(let sanitizedUsername in db.userVerifiedHistory) {
+    const vaultSpecificCodes = (db.userVerifiedHistory[sanitizedUsername] || [])
       .filter(entry => entry.vaultId === currentVaultId);
     
     if(vaultSpecificCodes.length > 0) {
-      userStats[username] = vaultSpecificCodes.length;
+      // Get original username from first entry
+      const originalUsername = vaultSpecificCodes[0].originalUsername || unsanitizeUsername(sanitizedUsername);
+      userStats[originalUsername] = vaultSpecificCodes.length;
     }
   }
   
@@ -2351,20 +2412,21 @@ function updateRankings() {
   
   let html = '<div style="display:flex;flex-direction:column;gap:8px">';
   
-  sorted.forEach(([username, count], index) => {
+  sorted.forEach(([originalUsername, count], index) => {
     const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
     const highlight = index < 3 ? 'style="background:rgba(255,255,255,0.05);padding:8px;border-radius:6px"' : 'style="padding:8px"';
     
-    // Show remove button for admins
+    // Use sanitized username for the remove function
+    const sanitizedUsername = sanitizeUsername(originalUsername);
     const removeBtn = (currentUserRole === 'admin' || currentUserRole === 'superadmin') 
-      ? `<button class="btn small" style="background:var(--danger);padding:4px 8px;font-size:11px;margin-left:8px" onclick="removeFromRankings('${username}')">Remove</button>`
+      ? `<button class="btn small" style="background:var(--danger);padding:4px 8px;font-size:11px;margin-left:8px" onclick="removeFromRankings('${sanitizedUsername}')">Remove</button>`
       : '';
     
     html += `
       <div ${highlight}>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <div>
-            <strong>${medal} ${index + 1}. ${username}</strong>
+            <strong>${medal} ${index + 1}. ${originalUsername}</strong>
             ${removeBtn}
           </div>
           <div style="color:var(--success);font-weight:bold">
