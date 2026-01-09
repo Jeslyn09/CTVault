@@ -333,10 +333,13 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
       </div>
 
       <div style="margin-top:20px" id="adminPanel" style="display:none">
-        <h3>Admin / Users</h3>
-        <button class="btn" id="openUsers">Manage Users</button>
-        <div style="margin-top:8px" class="small">Data is synced to Firebase cloud storage in real-time.</div>
-      </div>
+         <h3>Admin / Users</h3>
+         <div style="display:flex;gap:8px;flex-wrap:wrap">
+           <button class="btn" id="openUsers">Manage Users</button>
+           <button class="btn" id="openMergeUsers">Merge Users</button>
+         </div>
+         <div style="margin-top:8px" class="small">Data is synced to Firebase cloud storage in real-time.</div>
+       </div>
 
       <div style="margin-top:24px" id="activityLogSection">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -392,6 +395,30 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
   <div style="text-align:right;margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
     <button class="btn" id="confirmProposeVault">Submit</button>
     <button class="btn ghost" onclick="closeProposeVaultModal()">Cancel</button>
+  </div>
+</div></div>
+
+<div id="mergeUsersModal" class="modal"><div class="modal-content">
+  <h3>Merge Users</h3>
+  <p class="small" style="margin-bottom:12px">Merge duplicate user data into one username. This combines all pulled codes and verified history.</p>
+  
+  <label class="small">Source Username (will be deleted)</label>
+  <input id="mergeSource" placeholder="e.g., haryupiii" style="margin-bottom:12px" />
+  
+  <label class="small">Target Username (will keep all data)</label>
+  <input id="mergeTarget" placeholder="e.g., haryupiiii" style="margin-bottom:12px" />
+  
+  <div id="mergePreview" style="display:none;margin:12px 0;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--accent)">
+    <div class="small" style="margin-bottom:8px"><strong>Merge Preview:</strong></div>
+    <div id="mergePreviewContent"></div>
+  </div>
+  
+  <div id="mergeError" class="small" style="color:var(--danger);display:none;margin-top:8px"></div>
+  
+  <div style="text-align:right;margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+    <button class="btn" id="previewMerge">Preview Merge</button>
+    <button class="btn" id="confirmMerge" style="background:var(--success);display:none">Confirm Merge</button>
+    <button class="btn ghost" onclick="closeMergeUsersModal()">Cancel</button>
   </div>
 </div></div>
 
@@ -496,6 +523,23 @@ function showAddUserModal(){
   el('newUserRole').value='monkey';
   openModal('addUserModal');
 }
+
+function openMergeUsersModal() {
+  openModal('mergeUsersModal');
+  el('mergeSource').value = '';
+  el('mergeTarget').value = '';
+  hide(el('mergePreview'));
+  hide(el('confirmMerge'));
+  el('mergeError').style.display = 'none';
+}
+
+function closeMergeUsersModal() {
+  closeModal('mergeUsersModal');
+}
+
+window.openMergeUsersModal = openMergeUsersModal;
+window.closeMergeUsersModal = closeMergeUsersModal;
+
 function closeAddUserModal(){ closeModal('addUserModal'); }
 
 window.openLoginModal = openLoginModal;
@@ -2474,6 +2518,151 @@ function canDeleteUser(targetUsername){
 }
 
 el('openUsers').addEventListener('click', ()=>{ openUsersModal(); });
+
+el('openMergeUsers').addEventListener('click', () => {
+  if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+    alert('Only admins can merge users');
+    return;
+  }
+  openMergeUsersModal();
+});
+
+// Preview merge functionality
+el('previewMerge').addEventListener('click', () => {
+  const source = el('mergeSource').value.trim().toLowerCase();
+  const target = el('mergeTarget').value.trim().toLowerCase();
+  const err = el('mergeError');
+  
+  err.style.display = 'none';
+  hide(el('mergePreview'));
+  hide(el('confirmMerge'));
+  
+  if (!source || !target) {
+    err.style.display = 'block';
+    err.textContent = 'Please enter both usernames';
+    return;
+  }
+  
+  if (source === target) {
+    err.style.display = 'block';
+    err.textContent = 'Source and target must be different usernames';
+    return;
+  }
+  
+  const sanitizedSource = sanitizeUsername(source);
+  const sanitizedTarget = sanitizeUsername(target);
+  
+  // Count codes from both users
+  const sourcePulled = (db.userPulledCodes[sanitizedSource] || []).length;
+  const targetPulled = (db.userPulledCodes[sanitizedTarget] || []).length;
+  
+  const sourceVerifiedAll = (db.userVerifiedHistory[sanitizedSource] || []).length;
+  const targetVerifiedAll = (db.userVerifiedHistory[sanitizedTarget] || []).length;
+  
+  if (sourcePulled === 0 && sourceVerifiedAll === 0) {
+    err.style.display = 'block';
+    err.textContent = `No data found for "${source}". Please check spelling.`;
+    return;
+  }
+  
+  // Show preview
+  el('mergePreviewContent').innerHTML = `
+    <div style="margin-bottom:8px">
+      <strong style="color:var(--danger)">${source}:</strong> 
+      <span style="color:var(--muted)">${sourcePulled} pulled</span>, 
+      <span style="color:var(--success)">${sourceVerifiedAll} verified</span>
+    </div>
+    <div style="margin-bottom:12px">
+      <strong style="color:var(--accent)">${target}:</strong> 
+      <span style="color:var(--muted)">${targetPulled} pulled</span>, 
+      <span style="color:var(--success)">${targetVerifiedAll} verified</span>
+    </div>
+    <div style="padding-top:12px;border-top:1px solid var(--card-border)">
+      <strong>After merge (${target}):</strong><br>
+      <span style="color:var(--muted)">${sourcePulled + targetPulled} pulled codes</span>, 
+      <span style="color:var(--success)">${sourceVerifiedAll + targetVerifiedAll} verified codes</span>
+    </div>
+    <div style="margin-top:12px;padding:8px;background:var(--danger);color:white;border-radius:6px;font-size:12px">
+      ⚠️ Warning: "${source}" will be permanently deleted after merge!
+    </div>
+  `;
+  
+  show(el('mergePreview'));
+  show(el('confirmMerge'));
+});
+
+// Confirm merge functionality
+el('confirmMerge').addEventListener('click', async () => {
+  const source = el('mergeSource').value.trim().toLowerCase();
+  const target = el('mergeTarget').value.trim().toLowerCase();
+  
+  if (!confirm(
+    `⚠️ MERGE USERS?\n\n` +
+    `All data from "${source}" will be moved to "${target}"\n` +
+    `"${source}" will be PERMANENTLY DELETED.\n\n` +
+    `This action CANNOT be undone!\n\n` +
+    `Continue?`
+  )) {
+    return;
+  }
+  
+  const sanitizedSource = sanitizeUsername(source);
+  const sanitizedTarget = sanitizeUsername(target);
+  
+  let mergedCount = 0;
+  
+  // Merge pulled codes
+  if (db.userPulledCodes[sanitizedSource]) {
+    if (!db.userPulledCodes[sanitizedTarget]) {
+      db.userPulledCodes[sanitizedTarget] = [];
+    }
+    
+    // Update originalUsername to target
+    db.userPulledCodes[sanitizedSource].forEach(item => {
+      item.originalUsername = target;
+    });
+    
+    db.userPulledCodes[sanitizedTarget].push(...db.userPulledCodes[sanitizedSource]);
+    mergedCount += db.userPulledCodes[sanitizedSource].length;
+    delete db.userPulledCodes[sanitizedSource];
+  }
+  
+  // Merge verified history
+  if (db.userVerifiedHistory[sanitizedSource]) {
+    if (!db.userVerifiedHistory[sanitizedTarget]) {
+      db.userVerifiedHistory[sanitizedTarget] = [];
+    }
+    
+    // Update originalUsername to target
+    db.userVerifiedHistory[sanitizedSource].forEach(item => {
+      item.originalUsername = target;
+    });
+    
+    db.userVerifiedHistory[sanitizedTarget].push(...db.userVerifiedHistory[sanitizedSource]);
+    mergedCount += db.userVerifiedHistory[sanitizedSource].length;
+    delete db.userVerifiedHistory[sanitizedSource];
+  }
+  
+  await saveVaultDB();
+  addActivityLog('Merged Users', `"${source}" → "${target}" (${mergedCount} total codes merged)`);
+  
+  alert(`✓ Success!\n\nMerged "${source}" into "${target}"\n${mergedCount} codes transferred.`);
+  
+  closeMergeUsersModal();
+  populateUserSelect();
+  populateVerifiedUserSelect();
+  updateRankings();
+  updatePublicVaultInfo();
+  
+  // Refresh if viewing merged user
+  const selectedUser = el('user-select').value;
+  if (selectedUser === sanitizedSource || selectedUser === sanitizedTarget) {
+    el('user-select').value = sanitizedTarget;
+    show(el('user-codes-section'));
+    el('selected-username').textContent = target;
+    renderUserCodes(sanitizedTarget);
+  }
+});
 
 function renderUsersList(){ 
   const list = el('usersList'); 
