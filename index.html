@@ -859,26 +859,26 @@ el('pullBtn').addEventListener('click', async () => {
   codesToPull.forEach((code, index) => {
     let digits = code.split('');
     let result;
-    
+  
     if (highlight === 'none' || index === 0) {
-      result = digits.join(',');
+      result = digits.join(' ');  // ← Changed from ',' to ' '
     } else {
       result = digits.map((d, idx) => {
-        const shouldHighlight = !previousDigits || previousDigits[idx] !== d;
+       const shouldHighlight = !previousDigits || previousDigits[idx] !== d;
         if (shouldHighlight) {
           if (highlight === 'bold') return `**${d}**`;
           if (highlight === 'underline') return `__${d}__`;
         }
         return d;
-      }).join(',');
+      }).join(' ');  // ← Changed from ',' to ' '
     }
-    
+  
     previousDigits = digits;
     formatted.push(result);
-    
+  
     if (spacingNum > 0 && (index + 1) % spacingNum === 0 && index < codesToPull.length - 1) {
       formatted.push('');
-    }
+   }
   });
   
   const output = formatted.join('\n');
