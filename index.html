@@ -514,7 +514,7 @@ function processHighlight(text, style, spacing) {
     let result;
     
     if (style === 'none' || lineIndex === 0) {
-      result = digits.join(',');
+      result = digits.join(' ');
     } else {
       result = digits.map((d, idx) => {
         const shouldHighlight = !previousDigits || previousDigits[idx] !== d;
@@ -523,7 +523,7 @@ function processHighlight(text, style, spacing) {
           if (style === 'underline') return `__${d}__`;
         }
         return d;
-      }).join(',');
+      }).join(' ');
     }
     
     previousDigits = digits;
