@@ -1266,8 +1266,16 @@ function showVerifiedHistoryForUser(username) {
     const div = document.createElement('div');
     div.className = 'activity-log';
     div.innerHTML = `
-      <strong>${item.code.split('').join(', ')}</strong>
-      <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <strong>${item.code.split('').join(', ')}</strong>
+          <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn small" style="background:var(--success)" onclick="proposeCorrectCodeFromList('${item.code}')">Correct Code</button>
+          <button class="btn ghost small" onclick="redistributeVerifiedCode('${username}', '${item.code}')">Redistribute</button>
+        </div>
+      </div>
     `;
     list.appendChild(div);
   });
@@ -1482,6 +1490,48 @@ window.redistributeCode = async function(username, code) {
   renderUserCodes(username);
   refreshStatus();
   populateUserSelect();
+};
+
+// ADD THE NEW FUNCTION HERE:
+window.redistributeVerifiedCode = async function(username, code) {
+  if (!currentUser) {
+    alert('Please login to redistribute codes');
+    return;
+  }
+  
+  if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+    alert('Only admins can redistribute verified codes');
+    return;
+  }
+  
+  if (confirm(`Redistribute code "${code.split('').join(', ')}" back to unverified pool?\n\nThis will remove it from ${username}'s verified history.`)) {
+    // Remove from verified array
+    db.verified = db.verified.filter(c => c !== code);
+    
+    // Add back to unverified
+    db.unverified.push(code);
+    
+    // Remove from user's verified history for this vault
+    const currentVaultId = db.currentVaultId;
+    if (db.userVerifiedHistory[username]) {
+      db.userVerifiedHistory[username] = db.userVerifiedHistory[username]
+        .filter(entry => !(entry.code === code && entry.vaultId === currentVaultId));
+      
+      // Clean up empty histories
+      if (db.userVerifiedHistory[username].length === 0) {
+        delete db.userVerifiedHistory[username];
+      }
+    }
+    
+    await saveVaultDB();
+    addActivityLog('Redistributed Verified Code', `${username}: ${code} moved back to unverified`);
+    
+    // Refresh the display
+    showVerifiedHistoryForUser(username);
+    refreshStatus();
+    updateRankings();
+    populateVerifiedUserSelect();
+  }
 };
 
 el('verifyAllBtn').addEventListener('click', async () => {
