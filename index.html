@@ -1054,7 +1054,12 @@ el('user-select').addEventListener('change', () => {
 
 function renderUserCodes(username) {
   const codes = db.userPulledCodes[username] || [];
-  const verifiedCount = db.userVerifiedHistory[username] ? db.userVerifiedHistory[username].length : 0;
+  
+  // Filter verified count to only show current vault
+  const currentVaultId = db.currentVaultId;
+  const verifiedCount = currentVaultId && db.userVerifiedHistory[username] 
+    ? db.userVerifiedHistory[username].filter(entry => entry.vaultId === currentVaultId).length 
+    : 0;
   
   el('user-verified-count').textContent = verifiedCount;
   
@@ -1091,11 +1096,23 @@ function renderUserCodes(username) {
 }
 
 function renderVerifiedHistory(username) {
-  const verified = db.userVerifiedHistory[username] || [];
+  // Filter to only show codes from current vault
+  const currentVaultId = db.currentVaultId;
+  const allVerified = db.userVerifiedHistory[username] || [];
+  const verified = currentVaultId 
+    ? allVerified.filter(entry => entry.vaultId === currentVaultId)
+    : [];
+  
   filteredVerifiedCodes = verified;
   
   const list = el('user-verified-list');
   list.innerHTML = '';
+  
+  if (verified.length === 0) {
+    list.innerHTML = '<p class="small" style="color:var(--muted);padding:8px">No verified codes for current vault yet.</p>';
+    el('verified-pagination').innerHTML = '';
+    return;
+  }
   
   const start = (currentVerifiedPage - 1) * ITEMS_PER_PAGE;
   const end = start + ITEMS_PER_PAGE;
@@ -1113,6 +1130,35 @@ function renderVerifiedHistory(username) {
   
   renderPagination('verified', verified.length);
 }
+
+// ADD this new function for editing vault reward (add around line 1150, near other vault functions)
+window.editVaultReward = async function() {
+  if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+    alert('Only admins can edit vault reward');
+    return;
+  }
+  
+  if (!db.proposedVault) {
+    alert('No active vault to edit');
+    return;
+  }
+  
+  const currentReward = db.proposedVault.reward;
+  const newReward = prompt(`Edit vault reward:\n\nCurrent: ${currentReward}\n\nEnter new reward:`, currentReward);
+  
+  if (newReward !== null && newReward.trim() !== '' && newReward !== currentReward) {
+    const oldReward = db.proposedVault.reward;
+    db.proposedVault.reward = newReward.trim();
+    
+    await saveVaultDB();
+    addActivityLog('Edited Vault Reward', `Changed from "${oldReward}" to "${newReward.trim()}"`);
+    
+    alert('Vault reward updated successfully!');
+    refreshStatus();
+    refreshVerifyTab();
+    updatePublicVaultInfo();
+  }
+};
 
 function renderPagination(type, total) {
   const pages = Math.ceil(total / ITEMS_PER_PAGE);
@@ -1218,7 +1264,11 @@ el('verifyAllBtn').addEventListener('click', async () => {
       if (!db.userVerifiedHistory[username]) {
         db.userVerifiedHistory[username] = [];
       }
-      db.userVerifiedHistory[username].push({ code: item.code, timestamp: Date.now() });
+      db.userVerifiedHistory[username].push({ 
+        code: item.code, 
+        timestamp: Date.now(),
+        vaultId: db.currentVaultId 
+      });
     });
     
     db.userPulledCodes[username] = [];
@@ -1228,6 +1278,7 @@ el('verifyAllBtn').addEventListener('click', async () => {
     renderUserCodes(username);
     refreshStatus();
     populateUserSelect();
+    updateRankings();
   }
 });
 
@@ -1255,13 +1306,22 @@ el('redistributeAllBtn').addEventListener('click', async () => {
 el('code-search').addEventListener('input', () => {
   const search = el('code-search').value.toLowerCase();
   const username = el('user-select').value;
+  const currentVaultId = db.currentVaultId;
   
   if (search && db.userVerifiedHistory[username]) {
-    filteredVerifiedCodes = db.userVerifiedHistory[username].filter(item => 
+    const vaultFilteredCodes = currentVaultId 
+      ? (db.userVerifiedHistory[username] || []).filter(entry => entry.vaultId === currentVaultId)
+      : (db.userVerifiedHistory[username] || []);
+    
+    filteredVerifiedCodes = vaultFilteredCodes.filter(item => 
       item.code.includes(search)
     );
   } else {
-    filteredVerifiedCodes = db.userVerifiedHistory[username] || [];
+    const vaultFilteredCodes = currentVaultId 
+      ? (db.userVerifiedHistory[username] || []).filter(entry => entry.vaultId === currentVaultId)
+      : (db.userVerifiedHistory[username] || []);
+    
+    filteredVerifiedCodes = vaultFilteredCodes;
   }
   
   currentVerifiedPage = 1;
@@ -1433,9 +1493,26 @@ function refreshActiveVaultControls() {
     if (currentUserRole === 'admin' || currentUserRole === 'superadmin') {
       show(el('completeVaultBtn'));
       show(el('resetVaultBtn'));
+      
+      // ADD edit reward button if it doesn't exist
+      if (!el('editRewardBtn')) {
+        const editBtn = document.createElement('button');
+        editBtn.id = 'editRewardBtn';
+        editBtn.className = 'btn';
+        editBtn.textContent = 'Edit Reward';
+        editBtn.style.background = 'var(--accent)';
+        editBtn.onclick = editVaultReward;
+        
+        const btnContainer = el('active-vault-controls').querySelector('div[style*="display:flex"]');
+        if (btnContainer) {
+          btnContainer.appendChild(editBtn);
+        }
+      }
     } else {
       hide(el('completeVaultBtn'));
       hide(el('resetVaultBtn'));
+      const editBtn = el('editRewardBtn');
+      if (editBtn) editBtn.remove();
     }
   } else {
     hide(el('active-vault-controls'));
