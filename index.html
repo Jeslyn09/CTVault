@@ -429,7 +429,8 @@ let db = {
   correctCodeConfirmations: {},
   userPulledCodes: {},
   userVerifiedHistory: {},
-  activityLogs: []
+  activityLogs: [],
+  currentVaultId: null 
 };
 
 let currentUnverifiedPage = 1;
@@ -739,6 +740,8 @@ el('confirmVaultBtn').addEventListener('click', async () => {
   if(confirmationCount >= 2) {
     console.log('🎉 Vault confirmed! Activating...');
     
+
+    db.currentVaultId = `vault_${Date.now()}`;
     // DON'T regenerate codes - just clear the arrays
     db.unverified = [];
     db.verified = [];
@@ -1144,13 +1147,52 @@ window.verifyCode = async function(username, code) {
   if (!db.userVerifiedHistory[username]) {
     db.userVerifiedHistory[username] = [];
   }
-  db.userVerifiedHistory[username].push({ code, timestamp: Date.now() });
+  db.userVerifiedHistory[username].push({ 
+    code, 
+    timestamp: Date.now(),
+    vaultId: db.currentVaultId
+ });
   
   await saveVaultDB();
   addActivityLog('Verified Code', `${username}: ${code}`);
   renderUserCodes(username);
   refreshStatus();
   populateUserSelect();
+};
+
+window.removeFromRankings = async function(username) {
+  if(currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+    alert('Only admins can remove users from rankings');
+    return;
+  }
+  
+  if(!confirm(`Remove all verified codes for ${username} from current vault rankings?\n\nThis will delete their verified history for this vault only.`)) {
+    return;
+  }
+  
+  const currentVaultId = db.currentVaultId;
+  
+  if(!currentVaultId || !db.userVerifiedHistory[username]) {
+    alert('No data to remove');
+    return;
+  }
+  
+  // Remove only codes from current vault
+  db.userVerifiedHistory[username] = (db.userVerifiedHistory[username] || [])
+    .filter(entry => entry.vaultId !== currentVaultId);
+  
+  // If no history left, remove the user entry entirely
+  if(db.userVerifiedHistory[username].length === 0) {
+    delete db.userVerifiedHistory[username];
+  }
+  
+  await saveVaultDB();
+  addActivityLog('Removed from Rankings', `${username} removed from current vault rankings`);
+  
+  updateRankings();
+  updatePublicVaultInfo();
+  
+  alert(`${username} has been removed from current vault rankings`);
 };
 
 window.redistributeCode = async function(username, code) {
@@ -1648,6 +1690,7 @@ el('resetVaultBtn').addEventListener('click', async () => {
     db.unverified = [];
     db.verified = [];
     db.userPulledCodes = {};
+    db.currentVaultId = null;
     
     await saveVaultDB();
     addActivityLog('Reset Vault', `${vaultTitle} - Admin Reset`);
@@ -1693,7 +1736,8 @@ function setupRealtimeSync() {
         correctCodeConfirmations: data.correctCodeConfirmations || {},
         userPulledCodes: data.userPulledCodes || {},
         userVerifiedHistory: data.userVerifiedHistory || {},
-        activityLogs: data.activityLogs || []
+        activityLogs: data.activityLogs || [],
+        currentVaultId: data.currentVaultId || null
       };
       
       refreshStatus();
@@ -1912,15 +1956,27 @@ function updatePublicVaultInfo() {
   }
 }
 
-// ADD this new function for rankings:
 function updateRankings() {
   const rankingsList = el('rankings-list');
   if(!rankingsList) return;
   
-  // Calculate user verified counts
+  // Only count verified codes from the CURRENT vault
   const userStats = {};
+  const currentVaultId = db.currentVaultId;
+  
+  if(!currentVaultId) {
+    rankingsList.innerHTML = '<p class="small" style="color:var(--muted)">No active vault.</p>';
+    return;
+  }
+  
+  // Calculate stats only for current vault
   for(let username in db.userVerifiedHistory) {
-    userStats[username] = (db.userVerifiedHistory[username] || []).length;
+    const vaultSpecificCodes = (db.userVerifiedHistory[username] || [])
+      .filter(entry => entry.vaultId === currentVaultId);
+    
+    if(vaultSpecificCodes.length > 0) {
+      userStats[username] = vaultSpecificCodes.length;
+    }
   }
   
   // Sort by verified count
@@ -1929,7 +1985,7 @@ function updateRankings() {
     .slice(0, 5); // Top 5
   
   if(sorted.length === 0) {
-    rankingsList.innerHTML = '<p class="small" style="color:var(--muted)">No verified codes yet.</p>';
+    rankingsList.innerHTML = '<p class="small" style="color:var(--muted)">No verified codes yet for this vault.</p>';
     return;
   }
   
@@ -1939,11 +1995,17 @@ function updateRankings() {
     const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
     const highlight = index < 3 ? 'style="background:rgba(255,255,255,0.05);padding:8px;border-radius:6px"' : 'style="padding:8px"';
     
+    // Show remove button for admins
+    const removeBtn = (currentUserRole === 'admin' || currentUserRole === 'superadmin') 
+      ? `<button class="btn small" style="background:var(--danger);padding:4px 8px;font-size:11px;margin-left:8px" onclick="removeFromRankings('${username}')">Remove</button>`
+      : '';
+    
     html += `
       <div ${highlight}>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <div>
             <strong>${medal} ${index + 1}. ${username}</strong>
+            ${removeBtn}
           </div>
           <div style="color:var(--success);font-weight:bold">
             ${count.toLocaleString()} codes
@@ -2137,7 +2199,8 @@ async function checkAuth(){
           correctCodeConfirmations: data.correctCodeConfirmations || {},
           userPulledCodes: data.userPulledCodes || {},
           userVerifiedHistory: data.userVerifiedHistory || {},
-          activityLogs: data.activityLogs || []
+          activityLogs: data.activityLogs || [],
+          currentVaultId: data.currentVaultId || null
         };
         console.log('Vault data loaded successfully');
       } else {
@@ -2153,7 +2216,8 @@ async function checkAuth(){
           correctCodeConfirmations: {},
           userPulledCodes: {},
           userVerifiedHistory: {},
-          activityLogs: []
+          activityLogs: [],
+          currentVaultId: null
         };
         console.log('No vault data found, initialized empty structure');
       }
@@ -2171,7 +2235,8 @@ async function checkAuth(){
         correctCodeConfirmations: {},
         userPulledCodes: {},
         userVerifiedHistory: {},
-        activityLogs: []
+        activityLogs: [],
+        currentVaultId: null
       };
     }
     
