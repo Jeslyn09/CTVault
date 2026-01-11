@@ -1316,6 +1316,9 @@ function showVerifiedHistoryForUser(username) {
     ? allVerified.filter(entry => entry.vaultId === currentVaultId)
     : [];
   
+  // Sort by timestamp descending (newest first)
+  verified.sort((a, b) => b.timestamp - a.timestamp);
+  
   // Apply search filter if exists
   const searchTerm = el('code-search').value.toLowerCase();
   filteredVerifiedCodes = searchTerm 
@@ -1423,6 +1426,9 @@ function renderVerifiedHistory(username) {
     ? allVerified.filter(entry => entry.vaultId === currentVaultId)
     : [];
   
+  // Sort by timestamp descending (newest first)
+  verified.sort((a, b) => b.timestamp - a.timestamp);
+  
   filteredVerifiedCodes = verified;
   
   const list = el('user-verified-list');
@@ -1499,7 +1505,11 @@ function renderPagination(type, total) {
         renderUserCodes(el('user-select').value);
       } else {
         currentVerifiedPage = i;
-        renderVerifiedHistory(el('user-select').value);
+        // Get the username from the correct select element
+        const username = el('verified-user-select').value;
+        if (username) {
+          showVerifiedHistoryForUser(username);
+        }
       }
     };
     container.appendChild(btn);
