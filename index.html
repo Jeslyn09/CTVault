@@ -412,6 +412,15 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
     <div class="small" style="margin-bottom:8px"><strong>Merge Preview:</strong></div>
     <div id="mergePreviewContent"></div>
   </div>
+
+<div id="pullSuccessModal" class="modal"><div class="modal-content">
+  <h3>✓ Codes Pulled Successfully</h3>
+  <p id="pullSuccessMessage" style="margin:16px 0;font-size:16px"></p>
+  <div style="text-align:right;margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+    <button class="btn" id="copyPulledFromModal">Copy Codes</button>
+    <button class="btn ghost" onclick="closePullSuccessModal()">Close</button>
+  </div>
+</div></div>
   
   <div id="mergeError" class="small" style="color:var(--danger);display:none;margin-top:8px"></div>
   
@@ -479,6 +488,10 @@ function show(element) { element.style.display = 'block'; }
 function hide(element) { element.style.display = 'none'; }
 function openModal(id) { el(id).style.display = 'flex'; }
 function closeModal(id) { el(id).style.display = 'none'; }
+function openPullSuccessModal(){ openModal('pullSuccessModal'); }
+function closePullSuccessModal(){ closeModal('pullSuccessModal'); }
+
+window.closePullSuccessModal = closePullSuccessModal;
 
 function getRoleDisplayName(role) {
   switch(role) {
@@ -853,7 +866,7 @@ el('confirmVaultBtn').addEventListener('click', async () => {
   }
 });
 
-// REPLACE the entire el('pullBtn').addEventListener section with this COMPLETE version:
+// REPLACE the entire el('pullBtn').addEventListener section with this version:
 el('pullBtn').addEventListener('click', async () => {
   if (db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2) {
     alert('Pull codes is disabled. The correct code has been found!');
@@ -869,7 +882,7 @@ el('pullBtn').addEventListener('click', async () => {
   const username = el('pull-username').value.trim();
   const sanitizedUsername = sanitizeUsername(username);
   const amount = parseInt(el('pull-amount').value);
-  const startDigits = el('pull-start').value.trim(); // Multi-digit support
+  const startDigits = el('pull-start').value.trim();
   const highlight = el('pull-highlight').value;
   const spacing = parseInt(el('pull-spacing').value);
   
@@ -883,7 +896,6 @@ el('pullBtn').addEventListener('click', async () => {
     return;
   }
   
-  // Use sanitized username for checking
   const userUnverifiedCodes = db.userPulledCodes[sanitizedUsername] || [];
   if (userUnverifiedCodes.length > 0) {
     alert(`${username} still has ${userUnverifiedCodes.length} unverified codes. Please verify or redistribute them before pulling new codes.`);
@@ -894,26 +906,19 @@ el('pullBtn').addEventListener('click', async () => {
   const numbers = db.proposedVault.numbersInSequence.split(',').map(n => n.trim());
   const digitAmount = parseInt(db.proposedVault.digitAmount);
   
-  // Generate ALL codes first (without startDigits filter)
   const allPossibleCodes = generateCombinations(numbers, digitAmount, null);
   
-  // Build a set of already used codes (pulled OR verified)
   const usedCodes = new Set();
   
-  // Add all pulled codes from all users
   for (let user in db.userPulledCodes) {
     (db.userPulledCodes[user] || []).forEach(item => usedCodes.add(item.code));
   }
   
-  // Add all verified codes
   (db.verified || []).forEach(code => usedCodes.add(code));
   
-  // Filter available codes
   let availableCodes = allPossibleCodes.filter(code => !usedCodes.has(code));
   
-  // Apply startDigits filter if specified (MULTI-DIGIT SUPPORT)
   if (startDigits) {
-    // Validate that startDigits only contains valid numbers
     const validStartDigits = startDigits.replace(/[^0-9]/g, '');
     
     if (validStartDigits.length === 0) {
@@ -926,7 +931,6 @@ el('pullBtn').addEventListener('click', async () => {
       return;
     }
     
-    // Filter codes that start with the specified digits
     availableCodes = availableCodes.filter(code => code.startsWith(validStartDigits));
     
     if (availableCodes.length === 0) {
@@ -940,7 +944,6 @@ el('pullBtn').addEventListener('click', async () => {
     return;
   }
   
-  // Function to format codes and calculate character count
   function formatCodes(codes, highlight, spacing) {
     let previousDigits = null;
     const spacingNum = parseInt(spacing);
@@ -974,18 +977,15 @@ el('pullBtn').addEventListener('click', async () => {
     return formatted.join('\n');
   }
   
-  // Calculate how many codes will actually fit within 2000 character limit
   let finalAmount = Math.min(amount, availableCodes.length);
   let testCodes = availableCodes.slice(0, finalAmount);
   let testOutput = formatCodes(testCodes, highlight, spacing);
   
-  // If output exceeds 2000 chars, reduce by 5s until it fits
   while (testOutput.length > 2000 && finalAmount > 5) {
-    // Round down to nearest multiple of 5
     finalAmount = Math.floor((finalAmount - 1) / 5) * 5;
     
     if (finalAmount <= 0) {
-      finalAmount = 5; // Minimum 5 codes
+      finalAmount = 5;
       break;
     }
     
@@ -993,13 +993,11 @@ el('pullBtn').addEventListener('click', async () => {
     testOutput = formatCodes(testCodes, highlight, spacing);
   }
   
-  // Final check - if still over 2000, alert and abort
   if (testOutput.length > 2000) {
     alert('Cannot fit codes within 2000 character limit even with 5 codes. Try reducing spacing or changing highlight options.');
     return;
   }
   
-  // Use the calculated final amount
   const codesToPull = availableCodes.slice(0, finalAmount);
   
   if (!db.userPulledCodes[sanitizedUsername]) {
@@ -1014,7 +1012,6 @@ el('pullBtn').addEventListener('click', async () => {
   
   await saveVaultDB();
   
-  // Format the final output (we already have it from testOutput)
   const output = formatCodes(codesToPull, highlight, spacing);
   
   el('pulled-output').value = output;
@@ -1025,8 +1022,42 @@ el('pullBtn').addEventListener('click', async () => {
   refreshStatus();
   populateUserSelect();
   
-  // Show popup with actual amount pulled
-  alert(`Pulled ${finalAmount} code${finalAmount !== 1 ? 's' : ''} for ${username}`);
+  // Show custom modal with copy button
+  el('pullSuccessMessage').textContent = `Pulled ${finalAmount} code${finalAmount !== 1 ? 's' : ''} for ${username}`;
+  openPullSuccessModal();
+});
+
+// Add event listener for copy button in modal
+el('copyPulledFromModal').addEventListener('click', async () => {
+  const text = el('pulled-output').value;
+  
+  try {
+    await navigator.clipboard.writeText(text);
+    el('copyPulledFromModal').textContent = 'Copied!';
+    setTimeout(() => { 
+      el('copyPulledFromModal').textContent = 'Copy Codes';
+      closePullSuccessModal();
+    }, 1000);
+  } catch (err) {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      el('copyPulledFromModal').textContent = 'Copied!';
+      setTimeout(() => { 
+        el('copyPulledFromModal').textContent = 'Copy Codes';
+        closePullSuccessModal();
+      }, 1000);
+    } catch (e) {
+      alert('Copy failed. Please use the Copy button below the textarea.');
+    }
+    document.body.removeChild(textarea);
+  }
 });
 
 el('copyPulled').addEventListener('click', () => {
@@ -1629,35 +1660,6 @@ function renderVerifiedHistory(username) {
   renderPagination('verified', verified.length);
 }
 
-// ADD this new function for editing vault reward (add around line 1150, near other vault functions)
-window.editVaultReward = async function() {
-  if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
-    alert('Only admins can edit vault reward');
-    return;
-  }
-  
-  if (!db.proposedVault) {
-    alert('No active vault to edit');
-    return;
-  }
-  
-  const currentReward = db.proposedVault.reward;
-  const newReward = prompt(`Edit vault reward:\n\nCurrent: ${currentReward}\n\nEnter new reward:`, currentReward);
-  
-  if (newReward !== null && newReward.trim() !== '' && newReward !== currentReward) {
-    const oldReward = db.proposedVault.reward;
-    db.proposedVault.reward = newReward.trim();
-    
-    await saveVaultDB();
-    addActivityLog('Edited Vault Reward', `Changed from "${oldReward}" to "${newReward.trim()}"`);
-    
-    alert('Vault reward updated successfully!');
-    refreshStatus();
-    refreshVerifyTab();
-    updatePublicVaultInfo();
-  }
-};
-
 function renderPagination(type, total) {
   const pages = Math.ceil(total / ITEMS_PER_PAGE);
   const currentPage = type === 'unverified' ? currentUnverifiedPage : currentVerifiedPage;
@@ -2040,6 +2042,42 @@ function refreshStatus() {
   updatePublicVaultInfo();
   populateVerifiedUserSelect();
 }
+
+// ADD this new function for editing vault reward
+window.editVaultReward = async function() {
+  if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+    alert('Only admins can edit vault reward');
+    return;
+  }
+  
+  if (!db.proposedVault) {
+    alert('No active vault to edit');
+    return;
+  }
+  
+  const currentReward = db.proposedVault.reward;
+  const newReward = prompt(`Edit vault reward:\n\nCurrent: ${currentReward}\n\nEnter new reward:`, currentReward);
+  
+  if (newReward !== null && newReward.trim() !== '' && newReward !== currentReward) {
+    const oldReward = db.proposedVault.reward;
+    db.proposedVault.reward = newReward.trim();
+    
+    await saveVaultDB();
+    addActivityLog('Edited Vault Reward', `Changed from "${oldReward}" to "${newReward.trim()}"`);
+    
+    alert('Vault reward updated successfully!');
+    refreshStatus();
+    refreshVerifyTab();
+    updatePublicVaultInfo();
+  }
+};
+
+window.verifySearchedCodeDirectly = verifySearchedCodeDirectly;
+window.verifyPendingCode = verifyPendingCode;
+window.proposeCorrectCodeFromSearch = proposeCorrectCodeFromSearch;
+window.redistributeSearchedCode = redistributeSearchedCode;
+window.proposeCorrectCodeFromList = proposeCorrectCodeFromList;
+window.editVaultReward = editVaultReward;
 
 function refreshActiveVaultControls() {
   const vaultConfirmed = db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2;
