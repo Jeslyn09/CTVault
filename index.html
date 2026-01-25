@@ -2073,7 +2073,10 @@ el('confirmCorrectCodeBtn').addEventListener('click', async () => {
   const confirmationCount = Object.keys(db.correctCodeConfirmations).length;
   
   try {
+    // Wait for save to complete BEFORE updating UI
     await saveVaultDB();
+    // Add extra delay to ensure Firebase processes the write
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     if(confirmationCount >= 2) {
       addActivityLog('Confirmed Correct Code', db.correctCodeProposal.split('').join(', '));
@@ -2082,8 +2085,13 @@ el('confirmCorrectCodeBtn').addEventListener('click', async () => {
       alert(`Correct code confirmed! (${confirmationCount}/2 confirmations)`);
     }
     
+    // Update UI AFTER save completes
     refreshVerifyTab();
     refreshStatus();
+    updatePublicVaultInfo(); // Explicitly call this to ensure it updates
+  } catch (error) {
+    console.error('Error confirming correct code:', error);
+    alert('Error saving confirmation. Please try again.');
   } finally {
     isSavingCriticalData = false;
   }
