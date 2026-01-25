@@ -1194,6 +1194,45 @@ window.verifySearchedCodeDirectly = async function(code) {
   updateRankings();
 };
 
+// ADD this new function after verifySearchedCodeDirectly
+window.verifyPendingCode = async function(sanitizedUsername, code) {
+  if (!currentUser) {
+    alert('Please login to verify codes');
+    return;
+  }
+  
+  const codes = db.userPulledCodes[sanitizedUsername] || [];
+  const originalUsername = codes.length > 0 && codes[0].originalUsername 
+    ? codes[0].originalUsername 
+    : unsanitizeUsername(sanitizedUsername);
+  
+  // Remove from user's pulled codes
+  db.userPulledCodes[sanitizedUsername] = db.userPulledCodes[sanitizedUsername].filter(c => c.code !== code);
+  
+  // Add to verified
+  db.verified.push(code);
+  
+  // Add to user's verified history
+  if (!db.userVerifiedHistory[sanitizedUsername]) {
+    db.userVerifiedHistory[sanitizedUsername] = [];
+  }
+  db.userVerifiedHistory[sanitizedUsername].push({ 
+    code, 
+    timestamp: Date.now(),
+    vaultId: db.currentVaultId,
+    originalUsername: originalUsername
+  });
+  
+  await saveVaultDB();
+  addActivityLog('Verified Code (Search)', `${originalUsername}: ${code}`);
+  
+  // Re-search to update the display
+  el('searchCodeBtn').click();
+  refreshStatus();
+  updateRankings();
+  populateUserSelect();
+};
+
 // Propose correct code from search
 window.proposeCorrectCodeFromSearch = async function(code) {
   if (!currentUser) {
@@ -1674,6 +1713,7 @@ window.verifyCode = async function(sanitizedUsername, code) {
   renderUserCodes(sanitizedUsername);
   refreshStatus();
   populateUserSelect();
+  updateRankings();
 };
 
 window.removeFromRankings = async function(username) {
@@ -2198,7 +2238,7 @@ el('confirmCorrectCodeBtn').addEventListener('click', async () => {
     return;
   }
   
-  // Set critical save flag
+  // Set critical save flag IMMEDIATELY before any changes
   isSavingCriticalData = true;
   
   db.correctCodeConfirmations[currentUser] = true;
@@ -2206,27 +2246,38 @@ el('confirmCorrectCodeBtn').addEventListener('click', async () => {
   const confirmationCount = Object.keys(db.correctCodeConfirmations).length;
   
   try {
-    // Wait for save to complete BEFORE updating UI
-    await saveVaultDB();
-    // Add extra delay to ensure Firebase processes the write
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Save to Firebase first
+    await database.ref('vault').set(db);
     
+    // Wait for Firebase to process
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Add activity log
     if(confirmationCount >= 2) {
       addActivityLog('Confirmed Correct Code', db.correctCodeProposal.split('').join(', '));
+    }
+    
+    // Wait a bit more to ensure sync won't override
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Now safe to show alert
+    if(confirmationCount >= 2) {
       alert('Correct code has been confirmed and will now be displayed!');
     } else {
       alert(`Correct code confirmed! (${confirmationCount}/2 confirmations)`);
     }
     
-    // Update UI AFTER save completes
-    refreshVerifyTab();
-    refreshStatus();
-    updatePublicVaultInfo(); // Explicitly call this to ensure it updates
   } catch (error) {
     console.error('Error confirming correct code:', error);
     alert('Error saving confirmation. Please try again.');
   } finally {
+    // Clear flag AFTER everything is done
     isSavingCriticalData = false;
+    
+    // Update UI after flag is cleared
+    refreshVerifyTab();
+    refreshStatus();
+    updatePublicVaultInfo();
   }
 });
 
