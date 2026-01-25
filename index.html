@@ -332,7 +332,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
         <button class="btn ghost" id="logoutBtn" style="display:none">Logout</button>
       </div>
 
-      <div style="margin-top:20px" id="adminPanel" style="display:none">
+      <div id="adminPanel" style="margin-top:20px;display:none">
          <h3>Admin / Users</h3>
          <div style="display:flex;gap:8px;flex-wrap:wrap">
            <button class="btn" id="openUsers">Manage Users</button>
@@ -369,7 +369,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
   <label>Password</label><input id="newPassword" type="password" />
   <label>Role</label>
   <select id="newUserRole"><option value="monkey">Vault Monkey</option><option value="admin">Vault Admin</option><option value="superadmin">Admin</option></select>
-  <div style="margin-top:8px" id="addUserError" class="small" style="color:var(--danger);display:none"></div>
+  <div id="addUserError" class="small" style="margin-top:8px;color:var(--danger);display:none"></div>
   <div style="text-align:right;margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
     <button class="btn" id="confirmAddUser">Confirm</button>
     <button class="btn ghost" onclick="closeAddUserModal()">Cancel</button>
@@ -412,15 +412,6 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
     <div class="small" style="margin-bottom:8px"><strong>Merge Preview:</strong></div>
     <div id="mergePreviewContent"></div>
   </div>
-
-<div id="pullSuccessModal" class="modal"><div class="modal-content">
-  <h3>✓ Codes Pulled Successfully</h3>
-  <p id="pullSuccessMessage" style="margin:16px 0;font-size:16px"></p>
-  <div style="text-align:right;margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
-    <button class="btn" id="copyPulledFromModal">Copy Codes</button>
-    <button class="btn ghost" onclick="closePullSuccessModal()">Close</button>
-  </div>
-</div></div>
   
   <div id="mergeError" class="small" style="color:var(--danger);display:none;margin-top:8px"></div>
   
@@ -428,6 +419,16 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
     <button class="btn" id="previewMerge">Preview Merge</button>
     <button class="btn" id="confirmMerge" style="background:var(--success);display:none">Confirm Merge</button>
     <button class="btn ghost" onclick="closeMergeUsersModal()">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Pull Success Modal (separate modal) -->
+<div id="pullSuccessModal" class="modal"><div class="modal-content">
+  <h3>✓ Codes Pulled Successfully</h3>
+  <p id="pullSuccessMessage" style="margin:16px 0;font-size:16px"></p>
+  <div style="text-align:right;margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+    <button class="btn" id="copyPulledFromModal">Copy Codes</button>
+    <button class="btn ghost" onclick="closePullSuccessModal()">Close</button>
   </div>
 </div></div>
 
