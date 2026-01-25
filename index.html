@@ -458,7 +458,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-let users = { 'superadmin': { password: 'super2024', role: 'superadmin' } };
+let users = {};
 let currentUser = null;
 let currentUserRole = null;
 let db = { 
@@ -3090,12 +3090,6 @@ async function checkAuth(){
         activityLogs: [],
         currentVaultId: null
       };
-    }
-    
-    // Ensure superadmin exists
-    if(!users.superadmin){
-      users.superadmin = { password:'super2024', role:'superadmin' };
-      await saveUsersToFirebase();
     }
     
     // Setup realtime sync BEFORE updating UI
