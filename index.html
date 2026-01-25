@@ -1037,51 +1037,91 @@ el('copyPulled').addEventListener('click', () => {
   });
 });
 
+// REPLACE the el('searchCodeBtn').addEventListener('click', ...) section with this:
 el('searchCodeBtn').addEventListener('click', () => {
   const input = el('search-code-input').value.trim();
   const searchCode = input.replace(/[^0-9]/g, '');
   
   const resultDiv = el('search-result');
   
-  if (db.unverified.includes(searchCode)) {
+  // Check if code is verified
+  if (db.verified && db.verified.includes(searchCode)) {
     resultDiv.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
-          <strong>Status:</strong> Unverified (Available)
-        </div>
-        <button class="btn small" onclick="verifySearchedCode('${searchCode}')">Verify</button>
-      </div>
-    `;
-    resultDiv.style.color = 'var(--accent)';
-  } else if (db.verified.includes(searchCode)) {
-    resultDiv.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <div>
-          <strong>Status:</strong> Verified
+          <strong>Status:</strong> <span style="color:var(--success)">Verified</span>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn small" style="background:var(--success)" onclick="proposeCorrectCodeFromSearch('${searchCode}')">Correct Code</button>
           <button class="btn ghost small" onclick="redistributeSearchedCode('${searchCode}')">Redistribute</button>
+          <button class="btn small" style="background:var(--success)" onclick="proposeCorrectCodeFromSearch('${searchCode}')">Correct Code</button>
         </div>
       </div>
     `;
     resultDiv.style.color = 'var(--success)';
-  } else {
-    let found = false;
-    for (let user in db.userPulledCodes) {
-      if (db.userPulledCodes[user].find(c => c.code === searchCode)) {
-        resultDiv.innerHTML = `<strong>Status:</strong> Pulled by ${user}`;
-        resultDiv.style.color = 'var(--muted)';
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      resultDiv.innerHTML = '<strong>Status:</strong> Not found';
-      resultDiv.style.color = 'var(--danger)';
+    show(resultDiv);
+    return;
+  }
+  
+  // Check if code is in someone's pulled codes (pending/unverified by user)
+  let foundInPulled = false;
+  let pulledByUser = '';
+  let pulledSanitizedUsername = '';
+  
+  for (let sanitizedUsername in db.userPulledCodes) {
+    const userCodes = db.userPulledCodes[sanitizedUsername] || [];
+    const foundCode = userCodes.find(item => item.code === searchCode);
+    
+    if (foundCode) {
+      foundInPulled = true;
+      pulledByUser = foundCode.originalUsername || unsanitizeUsername(sanitizedUsername);
+      pulledSanitizedUsername = sanitizedUsername;
+      break;
     }
   }
   
+  if (foundInPulled) {
+    resultDiv.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <strong>Status:</strong> <span style="color:var(--accent)">Pending</span> (Pulled by ${pulledByUser})
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn small" onclick="verifyPendingCode('${pulledSanitizedUsername}', '${searchCode}')">Verify</button>
+          <button class="btn small" style="background:var(--success)" onclick="proposeCorrectCodeFromSearch('${searchCode}')">Correct Code</button>
+        </div>
+      </div>
+    `;
+    resultDiv.style.color = 'var(--accent)';
+    show(resultDiv);
+    return;
+  }
+  
+  // Check if code is in unverified pool (available to be pulled)
+  if (db.unverified && db.unverified.includes(searchCode)) {
+    resultDiv.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <strong>Status:</strong> <span style="color:var(--muted)">Unverified</span> (Available in pool)
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn small" onclick="verifySearchedCode('${searchCode}')">Verify</button>
+          <button class="btn small" style="background:var(--success)" onclick="proposeCorrectCodeFromSearch('${searchCode}')">Correct Code</button>
+        </div>
+      </div>
+    `;
+    resultDiv.style.color = 'var(--muted)';
+    show(resultDiv);
+    return;
+  }
+  
+  // Code not found anywhere
+  resultDiv.innerHTML = `
+    <div>
+      <strong>Status:</strong> <span style="color:var(--danger)">Not found</span>
+    </div>
+    <div class="small" style="margin-top:4px">This code is not in the current vault or doesn't match the vault's format.</div>
+  `;
+  resultDiv.style.color = 'var(--danger)';
   show(resultDiv);
 });
 
@@ -1113,6 +1153,45 @@ window.verifySearchedCode = async function(code) {
   el('searchCodeBtn').click();
   refreshStatus();
   updateRankings();
+};
+
+// ADD this new function after the window.verifySearchedCode function:
+window.verifyPendingCode = async function(sanitizedUsername, code) {
+  if (!currentUser) {
+    alert('Please login to verify codes');
+    return;
+  }
+  
+  const codes = db.userPulledCodes[sanitizedUsername] || [];
+  const originalUsername = codes.length > 0 && codes[0].originalUsername 
+    ? codes[0].originalUsername 
+    : unsanitizeUsername(sanitizedUsername);
+  
+  // Remove from user's pulled codes
+  db.userPulledCodes[sanitizedUsername] = db.userPulledCodes[sanitizedUsername].filter(c => c.code !== code);
+  
+  // Add to verified
+  db.verified.push(code);
+  
+  // Add to user's verified history
+  if (!db.userVerifiedHistory[sanitizedUsername]) {
+    db.userVerifiedHistory[sanitizedUsername] = [];
+  }
+  db.userVerifiedHistory[sanitizedUsername].push({ 
+    code, 
+    timestamp: Date.now(),
+    vaultId: db.currentVaultId,
+    originalUsername: originalUsername
+  });
+  
+  await saveVaultDB();
+  addActivityLog('Verified Code (Search)', `${originalUsername}: ${code}`);
+  
+  // Re-search to update the display
+  el('searchCodeBtn').click();
+  refreshStatus();
+  updateRankings();
+  populateUserSelect();
 };
 
 // Propose correct code from search
