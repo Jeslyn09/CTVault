@@ -1044,6 +1044,33 @@ el('searchCodeBtn').addEventListener('click', () => {
   
   const resultDiv = el('search-result');
   
+  // Check if there's an active vault
+  if (!db.proposedVault || Object.keys(db.vaultConfirmations || {}).length < 2) {
+    resultDiv.innerHTML = `
+      <div>
+        <strong>Status:</strong> <span style="color:var(--danger)">No active vault</span>
+      </div>
+      <div class="small" style="margin-top:4px">There is no active vault to search codes in.</div>
+    `;
+    resultDiv.style.color = 'var(--danger)';
+    show(resultDiv);
+    return;
+  }
+  
+  // Validate code length matches vault's digit amount
+  const expectedLength = parseInt(db.proposedVault.digitAmount);
+  if (searchCode.length !== expectedLength) {
+    resultDiv.innerHTML = `
+      <div>
+        <strong>Status:</strong> <span style="color:var(--danger)">Invalid format</span>
+      </div>
+      <div class="small" style="margin-top:4px">Code must be exactly ${expectedLength} digits for this vault.</div>
+    `;
+    resultDiv.style.color = 'var(--danger)';
+    show(resultDiv);
+    return;
+  }
+  
   // Check if code is verified
   if (db.verified && db.verified.includes(searchCode)) {
     resultDiv.innerHTML = `
@@ -1096,15 +1123,26 @@ el('searchCodeBtn').addEventListener('click', () => {
     return;
   }
   
-  // Check if code is in unverified pool (available to be pulled)
-  if (db.unverified && db.unverified.includes(searchCode)) {
+  // Check if code is valid for this vault (exists in possible combinations)
+  // Generate the code to check if it's a valid combination
+  const numbers = db.proposedVault.numbersInSequence.split(',').map(n => n.trim());
+  const codeDigits = searchCode.split('');
+  
+  // Validate that code only uses numbers from the vault's sequence
+  const isValidCode = codeDigits.every(digit => numbers.includes(digit));
+  
+  // Check if code contains all required numbers
+  const hasAllNumbers = numbers.every(num => codeDigits.includes(num));
+  
+  if (isValidCode && hasAllNumbers) {
+    // Code is valid and available (unverified/not pulled)
     resultDiv.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
-          <strong>Status:</strong> <span style="color:var(--muted)">Unverified</span> (Available in pool)
+          <strong>Status:</strong> <span style="color:var(--muted)">Unverified</span> (Not yet pulled)
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn small" onclick="verifySearchedCode('${searchCode}')">Verify</button>
+          <button class="btn small" onclick="verifySearchedCodeDirectly('${searchCode}')">Verify</button>
           <button class="btn small" style="background:var(--success)" onclick="proposeCorrectCodeFromSearch('${searchCode}')">Correct Code</button>
         </div>
       </div>
@@ -1114,66 +1152,29 @@ el('searchCodeBtn').addEventListener('click', () => {
     return;
   }
   
-  // Code not found anywhere
+  // Code not valid for this vault
   resultDiv.innerHTML = `
     <div>
-      <strong>Status:</strong> <span style="color:var(--danger)">Not found</span>
+      <strong>Status:</strong> <span style="color:var(--danger)">Invalid</span>
     </div>
-    <div class="small" style="margin-top:4px">This code is not in the current vault or doesn't match the vault's format.</div>
+    <div class="small" style="margin-top:4px">This code doesn't match the vault's format (must use numbers: ${numbers.join(', ')} and include all of them).</div>
   `;
   resultDiv.style.color = 'var(--danger)';
   show(resultDiv);
 });
 
-// Verify a searched code
-window.verifySearchedCode = async function(code) {
+// ADD this new function to verify codes directly from search (without needing to pull first)
+window.verifySearchedCodeDirectly = async function(code) {
   if (!currentUser) {
     alert('Please login to verify codes');
     return;
   }
   
-  db.unverified = db.unverified.filter(c => c !== code);
+  // Add directly to verified
   db.verified.push(code);
   
-  // Add to a generic "search verified" history if you want to track who verified it
-  const username = currentUser;
-  if (!db.userVerifiedHistory[username]) {
-    db.userVerifiedHistory[username] = [];
-  }
-  db.userVerifiedHistory[username].push({ 
-    code, 
-    timestamp: Date.now(),
-    vaultId: db.currentVaultId 
-  });
-  
-  await saveVaultDB();
-  addActivityLog('Verified Code (Search)', `${username}: ${code}`);
-  
-  // Re-search to update the display
-  el('searchCodeBtn').click();
-  refreshStatus();
-  updateRankings();
-};
-
-// ADD this new function after the window.verifySearchedCode function:
-window.verifyPendingCode = async function(sanitizedUsername, code) {
-  if (!currentUser) {
-    alert('Please login to verify codes');
-    return;
-  }
-  
-  const codes = db.userPulledCodes[sanitizedUsername] || [];
-  const originalUsername = codes.length > 0 && codes[0].originalUsername 
-    ? codes[0].originalUsername 
-    : unsanitizeUsername(sanitizedUsername);
-  
-  // Remove from user's pulled codes
-  db.userPulledCodes[sanitizedUsername] = db.userPulledCodes[sanitizedUsername].filter(c => c.code !== code);
-  
-  // Add to verified
-  db.verified.push(code);
-  
-  // Add to user's verified history
+  // Add to current user's verified history
+  const sanitizedUsername = sanitizeUsername(currentUser);
   if (!db.userVerifiedHistory[sanitizedUsername]) {
     db.userVerifiedHistory[sanitizedUsername] = [];
   }
@@ -1181,17 +1182,16 @@ window.verifyPendingCode = async function(sanitizedUsername, code) {
     code, 
     timestamp: Date.now(),
     vaultId: db.currentVaultId,
-    originalUsername: originalUsername
+    originalUsername: currentUser
   });
   
   await saveVaultDB();
-  addActivityLog('Verified Code (Search)', `${originalUsername}: ${code}`);
+  addActivityLog('Verified Code (Search)', `${currentUser}: ${code}`);
   
   // Re-search to update the display
   el('searchCodeBtn').click();
   refreshStatus();
   updateRankings();
-  populateUserSelect();
 };
 
 // Propose correct code from search
