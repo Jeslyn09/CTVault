@@ -77,7 +77,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
       <button class="tab hidden" data-tab="verify">Verify</button>
       <button class="tab hidden" id="usersTab" data-tab="users">Users</button>
     </div>
-    <!-- REPLACE the entire <section class="card" id="public"> section with this: -->
+
     <section class="card" id="public">
       <h3>Vault Status</h3>
       <div style="margin-top:20px;padding:16px;background:var(--surface-2);border-radius:8px">
@@ -87,7 +87,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
         </div>
       </div>
   
-  <!-- Rankings Section -->
+
       <div id="public-rankings" style="margin-top:20px;padding:16px;background:var(--surface-2);border-radius:8px;display:none">
         <h4 style="margin:0 0 12px 0">🏆 Top 5 Vault Crackers</h4>
         <div id="rankings-list"></div>
@@ -271,7 +271,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
        </div>
      </div>
 
-     <!-- ADD THIS SECTION after Search Code and before Users: heading -->
+
      <div style="margin-bottom:20px;padding:16px;background:var(--surface-2);border-radius:8px">
        <h3 style="margin:0 0 12px 0">Propose Correct Code</h3>
        <p class="small" style="margin-bottom:12px">Found the correct vault code? Propose it here (requires 2 confirmations)</p>
@@ -308,7 +308,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
         <div id="unverified-pagination" class="pagination"></div>
       </div>
 
-      <!-- Separate section for verified user history search -->
+
       <div class="search-box" style="margin-top:24px">
         <h3 style="margin:0 0 8px 0">Search Codes History per User</h3>
         <select id="verified-user-select" style="margin-bottom:8px">
@@ -422,7 +422,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
   </div>
 </div></div>
 
-<!-- Pull Success Modal (separate modal) -->
+
 <div id="pullSuccessModal" class="modal"><div class="modal-content">
   <h3>✓ Codes Pulled Successfully</h3>
   <p id="pullSuccessMessage" style="margin:16px 0;font-size:16px"></p>
@@ -433,7 +433,7 @@ textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid
 </div></div>
 
 <script>
-// Wait for Firebase to load
+
 (function() {
   function initApp() {
     if (typeof firebase === 'undefined') {
@@ -503,9 +503,7 @@ function getRoleDisplayName(role) {
   }
 }
 
-// ADD these helper functions at the top with other utility functions
 function sanitizeUsername(username) {
-  // Replace dots and other special characters that might cause issues
   return username.replace(/\./g, '_dot_')
                  .replace(/\$/g, '_dollar_')
                  .replace(/\#/g, '_hash_')
@@ -515,7 +513,7 @@ function sanitizeUsername(username) {
 }
 
 function unsanitizeUsername(sanitized) {
-  // Reverse the sanitization for display
+
   return sanitized.replace(/_dot_/g, '.')
                   .replace(/_dollar_/g, '$')
                   .replace(/_hash_/g, '#')
@@ -524,7 +522,6 @@ function unsanitizeUsername(sanitized) {
                   .replace(/_slash_/g, '/');
 }
 
-// Modal functions - exposed globally
 function openLoginModal(){ openModal('loginModal'); }
 function closeLoginModal(){ closeModal('loginModal'); }
 function closeProposeVaultModal() { closeModal('proposeVaultModal'); }
@@ -571,7 +568,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.card').forEach(card => hide(card));
     show(el(target));
     
-    // Refresh the verify tab when switching to it
+
     if (target === 'verify') {
       const selectedUser = el('user-select').value;
       if (selectedUser) {
@@ -733,14 +730,14 @@ el('copyBtn2').addEventListener('click', async () => {
   }
 });
 
-// In the el('proposeVaultBtn').addEventListener('click', ...) section:
+
 el('proposeVaultBtn').addEventListener('click', () => {
   if (lastGeneratedCodes.length === 0) {
     alert('Please generate combinations first');
     return;
   }
   
-  // ADD THIS CHECK: Prevent proposal if a vault is already confirmed
+  
   if (db.proposedVault && Object.keys(db.vaultConfirmations || {}).length >= 2) {
     alert('A vault is already active. Cannot propose a new vault until the current one is completed.');
     return;
@@ -749,7 +746,7 @@ el('proposeVaultBtn').addEventListener('click', () => {
   openModal('proposeVaultModal');
 });
 
-// REPLACE the el('confirmProposeVault').addEventListener section with this:
+
 el('confirmProposeVault').addEventListener('click', async () => {
   const title = el('vaultTitle').value.trim();
   const reward = el('vaultReward').value.trim();
@@ -776,13 +773,13 @@ el('confirmProposeVault').addEventListener('click', async () => {
   const numbersStr = el('numbersInput').value.trim();
   const digitAmount = el('digitAmount').value;
   
-  // Store only metadata, not the actual codes array
+  
   db.proposedVault = {
     title,
     reward,
     numbersInSequence: numbersStr,
     digitAmount: digitAmount,
-    totalCodes: lastGeneratedCodes.length // Store count only
+    totalCodes: lastGeneratedCodes.length 
   };
   db.proposedBy = currentUser;
   db.vaultConfirmations = {};
@@ -806,7 +803,7 @@ el('confirmProposeVault').addEventListener('click', async () => {
   alert('Vault proposal submitted! Requires 2 confirmations from other users. Check the Verify tab.');
 });
 
-// REPLACE the el('confirmVaultBtn').addEventListener section with this:
+
 el('confirmVaultBtn').addEventListener('click', async () => {
   if(!db.vaultConfirmations) db.vaultConfirmations = {};
   
@@ -831,7 +828,6 @@ el('confirmVaultBtn').addEventListener('click', async () => {
     
 
     db.currentVaultId = `vault_${Date.now()}`;
-    // DON'T regenerate codes - just clear the arrays
     db.unverified = [];
     db.verified = [];
     db.userPulledCodes = {};
@@ -867,14 +863,12 @@ el('confirmVaultBtn').addEventListener('click', async () => {
   }
 });
 
-// REPLACE the entire el('pullBtn').addEventListener section with this version:
 el('pullBtn').addEventListener('click', async () => {
   if (db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2) {
     alert('Pull codes is disabled. The correct code has been found!');
     return;
   }
-  
-  // Check if vault is active
+
   if (!db.proposedVault || Object.keys(db.vaultConfirmations || {}).length < 2) {
     alert('No active vault to pull codes from');
     return;
@@ -902,8 +896,7 @@ el('pullBtn').addEventListener('click', async () => {
     alert(`${username} still has ${userUnverifiedCodes.length} unverified codes. Please verify or redistribute them before pulling new codes.`);
     return;
   }
-  
-  // Generate codes on-demand from vault metadata
+
   const numbers = db.proposedVault.numbersInSequence.split(',').map(n => n.trim());
   const digitAmount = parseInt(db.proposedVault.digitAmount);
   
@@ -1023,12 +1016,10 @@ el('pullBtn').addEventListener('click', async () => {
   refreshStatus();
   populateUserSelect();
   
-  // Show custom modal with copy button
   el('pullSuccessMessage').textContent = `Pulled ${finalAmount} code${finalAmount !== 1 ? 's' : ''} for ${username}`;
   openPullSuccessModal();
 });
 
-// Add event listener for copy button in modal
 el('copyPulledFromModal').addEventListener('click', async () => {
   const text = el('pulled-output').value;
   
@@ -1040,7 +1031,6 @@ el('copyPulledFromModal').addEventListener('click', async () => {
       closePullSuccessModal();
     }, 1000);
   } catch (err) {
-    // Fallback for older browsers
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
@@ -1069,14 +1059,12 @@ el('copyPulled').addEventListener('click', () => {
   });
 });
 
-// REPLACE the el('searchCodeBtn').addEventListener('click', ...) section with this:
 el('searchCodeBtn').addEventListener('click', () => {
   const input = el('search-code-input').value.trim();
   const searchCode = input.replace(/[^0-9]/g, '');
   
   const resultDiv = el('search-result');
   
-  // Check if there's an active vault
   if (!db.proposedVault || Object.keys(db.vaultConfirmations || {}).length < 2) {
     resultDiv.innerHTML = `
       <div>
@@ -1089,7 +1077,6 @@ el('searchCodeBtn').addEventListener('click', () => {
     return;
   }
   
-  // Validate code length matches vault's digit amount
   const expectedLength = parseInt(db.proposedVault.digitAmount);
   if (searchCode.length !== expectedLength) {
     resultDiv.innerHTML = `
@@ -1102,8 +1089,7 @@ el('searchCodeBtn').addEventListener('click', () => {
     show(resultDiv);
     return;
   }
-  
-  // Check if code is verified
+
   if (db.verified && db.verified.includes(searchCode)) {
     resultDiv.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
@@ -1120,8 +1106,7 @@ el('searchCodeBtn').addEventListener('click', () => {
     show(resultDiv);
     return;
   }
-  
-  // Check if code is in someone's pulled codes (pending/unverified by user)
+ 
   let foundInPulled = false;
   let pulledByUser = '';
   let pulledSanitizedUsername = '';
@@ -1155,19 +1140,18 @@ el('searchCodeBtn').addEventListener('click', () => {
     return;
   }
   
-  // Check if code is valid for this vault (exists in possible combinations)
-  // Generate the code to check if it's a valid combination
+  
   const numbers = db.proposedVault.numbersInSequence.split(',').map(n => n.trim());
   const codeDigits = searchCode.split('');
   
-  // Validate that code only uses numbers from the vault's sequence
+  
   const isValidCode = codeDigits.every(digit => numbers.includes(digit));
   
-  // Check if code contains all required numbers
+  
   const hasAllNumbers = numbers.every(num => codeDigits.includes(num));
   
   if (isValidCode && hasAllNumbers) {
-    // Code is valid and available (unverified/not pulled)
+  
     resultDiv.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
@@ -1184,7 +1168,7 @@ el('searchCodeBtn').addEventListener('click', () => {
     return;
   }
   
-  // Code not valid for this vault
+  
   resultDiv.innerHTML = `
     <div>
       <strong>Status:</strong> <span style="color:var(--danger)">Invalid</span>
@@ -1195,17 +1179,17 @@ el('searchCodeBtn').addEventListener('click', () => {
   show(resultDiv);
 });
 
-// ADD this new function to verify codes directly from search (without needing to pull first)
+
 window.verifySearchedCodeDirectly = async function(code) {
   if (!currentUser) {
     alert('Please login to verify codes');
     return;
   }
   
-  // Add directly to verified
+  
   db.verified.push(code);
   
-  // Add to current user's verified history
+  
   const sanitizedUsername = sanitizeUsername(currentUser);
   if (!db.userVerifiedHistory[sanitizedUsername]) {
     db.userVerifiedHistory[sanitizedUsername] = [];
@@ -1220,13 +1204,13 @@ window.verifySearchedCodeDirectly = async function(code) {
   await saveVaultDB();
   addActivityLog('Verified Code (Search)', `${currentUser}: ${code}`);
   
-  // Re-search to update the display
+  
   el('searchCodeBtn').click();
   refreshStatus();
   updateRankings();
 };
 
-// ADD this new function after verifySearchedCodeDirectly
+
 window.verifyPendingCode = async function(sanitizedUsername, code) {
   if (!currentUser) {
     alert('Please login to verify codes');
@@ -1238,13 +1222,13 @@ window.verifyPendingCode = async function(sanitizedUsername, code) {
     ? codes[0].originalUsername 
     : unsanitizeUsername(sanitizedUsername);
   
-  // Remove from user's pulled codes
+  
   db.userPulledCodes[sanitizedUsername] = db.userPulledCodes[sanitizedUsername].filter(c => c.code !== code);
   
-  // Add to verified
+  
   db.verified.push(code);
   
-  // Add to user's verified history
+  
   if (!db.userVerifiedHistory[sanitizedUsername]) {
     db.userVerifiedHistory[sanitizedUsername] = [];
   }
@@ -1258,14 +1242,14 @@ window.verifyPendingCode = async function(sanitizedUsername, code) {
   await saveVaultDB();
   addActivityLog('Verified Code (Search)', `${originalUsername}: ${code}`);
   
-  // Re-search to update the display
+ 
   el('searchCodeBtn').click();
   refreshStatus();
   updateRankings();
   populateUserSelect();
 };
 
-// Propose correct code from search
+
 window.proposeCorrectCodeFromSearch = async function(code) {
   if (!currentUser) {
     alert('Please login to propose correct code');
@@ -1292,7 +1276,7 @@ window.proposeCorrectCodeFromSearch = async function(code) {
     
     alert('Correct code proposed! Requires 2 confirmations from other users. Check the Verify tab.');
     
-    // Switch to verify tab
+   
     const verifyTab = document.querySelector('.tab[data-tab="verify"]');
     if(verifyTab) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1306,7 +1290,7 @@ window.proposeCorrectCodeFromSearch = async function(code) {
   }
 };
 
-// Redistribute a verified code back to unverified
+
 window.redistributeSearchedCode = async function(code) {
   if (!currentUser) {
     alert('Please login to redistribute codes');
@@ -1319,19 +1303,18 @@ window.redistributeSearchedCode = async function(code) {
   }
   
   if (confirm(`Redistribute code "${code.split('').join(', ')}" back to unverified pool?\n\nThis will remove it from verified history.`)) {
-    // Remove from verified
+    
     db.verified = db.verified.filter(c => c !== code);
     
-    // Add back to unverified
     db.unverified.push(code);
     
-    // Remove from all user histories for this vault
+    
     const currentVaultId = db.currentVaultId;
     for (let username in db.userVerifiedHistory) {
       db.userVerifiedHistory[username] = (db.userVerifiedHistory[username] || [])
         .filter(entry => !(entry.code === code && entry.vaultId === currentVaultId));
       
-      // Clean up empty histories
+      
       if (db.userVerifiedHistory[username].length === 0) {
         delete db.userVerifiedHistory[username];
       }
@@ -1340,14 +1323,12 @@ window.redistributeSearchedCode = async function(code) {
     await saveVaultDB();
     addActivityLog('Redistributed Code (Search)', `${code} moved back to unverified`);
     
-    // Re-search to update the display
     el('searchCodeBtn').click();
     refreshStatus();
     updateRankings();
   }
 };
 
-// ADD this event listener for proposing correct code:
 el('proposeCorrectCodeBtn').addEventListener('click', async () => {
   const input = el('correct-code-input').value.trim();
   const code = input.replace(/[^0-9]/g, '');
@@ -1367,7 +1348,6 @@ el('proposeCorrectCodeBtn').addEventListener('click', async () => {
     return;
   }
   
-  // Check if code matches vault's digit amount
   const expectedLength = parseInt(db.proposedVault.digitAmount);
   if (code.length !== expectedLength) {
     alert(`Code must be exactly ${expectedLength} digits`);
@@ -1395,7 +1375,6 @@ el('proposeCorrectCodeBtn').addEventListener('click', async () => {
   }
 });
 
-// NEW: Global function to propose correct code from individual code list
 window.proposeCorrectCodeFromList = async function(code) {
   if (!currentUser) {
     alert('Please login to propose correct code');
@@ -1407,13 +1386,11 @@ window.proposeCorrectCodeFromList = async function(code) {
     return;
   }
   
-  // Check if a correct code has already been proposed
   if (db.correctCodeProposal) {
     alert('A correct code has already been proposed. Check the verification section above.');
     return;
   }
   
-  // Confirm with user
   if (confirm(`Propose "${code.split('').join(', ')}" as the correct vault code?\n\nThis requires 2 confirmations from other users.`)) {
     db.correctCodeProposal = code;
     db.correctCodeProposedBy = currentUser;
@@ -1424,7 +1401,6 @@ window.proposeCorrectCodeFromList = async function(code) {
     
     alert('Correct code proposed! Requires 2 confirmations from other users. Check the Verify tab.');
     
-    // Switch to verify tab to show the proposal
     const verifyTab = document.querySelector('.tab[data-tab="verify"]');
     if(verifyTab) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1438,14 +1414,13 @@ window.proposeCorrectCodeFromList = async function(code) {
   }
 };
 
-// REPLACE the populateUserSelect function
 function populateUserSelect() {
   const select = el('user-select');
   select.innerHTML = '<option value="">Select a user...</option>';
   
   for (let sanitizedUsername in db.userPulledCodes) {
     if (db.userPulledCodes[sanitizedUsername].length > 0) {
-      // Get original username from first code entry
+
       const originalUsername = db.userPulledCodes[sanitizedUsername][0].originalUsername || unsanitizeUsername(sanitizedUsername);
       const opt = document.createElement('option');
       opt.value = sanitizedUsername;  // Use sanitized as value
@@ -1460,8 +1435,8 @@ el('user-select').addEventListener('change', () => {
   if (username) {
     show(el('user-codes-section'));
     el('selected-username').textContent = username;
-    currentUnverifiedPage = 1; // Reset to page 1
-    currentVerifiedPage = 1; // Reset to page 1
+    currentUnverifiedPage = 1; 
+    currentVerifiedPage = 1;
     renderUserCodes(username);
   } else {
     hide(el('user-codes-section'));
@@ -1475,7 +1450,7 @@ function populateVerifiedUserSelect() {
   const currentVaultId = db.currentVaultId;
   
   for (let username in db.userVerifiedHistory) {
-    // Only show users with verified codes in current vault
+    
     const vaultCodes = (db.userVerifiedHistory[username] || [])
       .filter(entry => entry.vaultId === currentVaultId);
     
@@ -1488,23 +1463,22 @@ function populateVerifiedUserSelect() {
   }
 }
 
-// Event listener for verified user select
+
 el('verified-user-select').addEventListener('change', () => {
   const username = el('verified-user-select').value;
   
   if (username) {
-    // Show code search and history title
+   
     show(el('code-search'));
     show(el('verified-history-title'));
     
-    // Reset search
+
     el('code-search').value = '';
-    
-    // Show verified history for this user
+
     currentVerifiedPage = 1;
     showVerifiedHistoryForUser(username);
   } else {
-    // Hide when no user selected
+
     hide(el('code-search'));
     hide(el('verified-history-title'));
     el('user-verified-list').innerHTML = '';
@@ -1512,7 +1486,7 @@ el('verified-user-select').addEventListener('change', () => {
   }
 });
 
-// New function to show verified history without unverified codes
+
 function showVerifiedHistoryForUser(username) {
   const currentVaultId = db.currentVaultId;
   const allVerified = db.userVerifiedHistory[username] || [];
@@ -1520,10 +1494,9 @@ function showVerifiedHistoryForUser(username) {
     ? allVerified.filter(entry => entry.vaultId === currentVaultId)
     : [];
   
-  // Sort by timestamp descending (newest first)
+ 
   verified.sort((a, b) => b.timestamp - a.timestamp);
   
-  // Apply search filter if exists
   const searchTerm = el('code-search').value.toLowerCase();
   filteredVerifiedCodes = searchTerm 
     ? verified.filter(item => item.code.includes(searchTerm))
@@ -1563,7 +1536,7 @@ function showVerifiedHistoryForUser(username) {
   renderPagination('verified', filteredVerifiedCodes.length);
 }
 
-// Update code search to work with verified history
+
 el('code-search').addEventListener('input', () => {
   const username = el('verified-user-select').value;
   if (username) {
@@ -1572,23 +1545,23 @@ el('code-search').addEventListener('input', () => {
   }
 });
 
-// REPLACE the renderUserCodes function
+
 function renderUserCodes(sanitizedUsername) {
   const codes = db.userPulledCodes[sanitizedUsername] || [];
   
-  // Get original username
+
   const originalUsername = codes.length > 0 && codes[0].originalUsername 
     ? codes[0].originalUsername 
     : unsanitizeUsername(sanitizedUsername);
   
-  // Filter verified count to only show current vault
+
   const currentVaultId = db.currentVaultId;
   const verifiedCount = currentVaultId && db.userVerifiedHistory[sanitizedUsername] 
     ? db.userVerifiedHistory[sanitizedUsername].filter(entry => entry.vaultId === currentVaultId).length 
     : 0;
   
   el('user-verified-count').textContent = verifiedCount;
-  el('selected-username').textContent = originalUsername;  // Show original username
+  el('selected-username').textContent = originalUsername;  
   
   const list = el('user-codes-list');
   list.innerHTML = '';
@@ -1623,14 +1596,14 @@ function renderUserCodes(sanitizedUsername) {
 }
 
 function renderVerifiedHistory(username) {
-  // Filter to only show codes from current vault
+  
   const currentVaultId = db.currentVaultId;
   const allVerified = db.userVerifiedHistory[username] || [];
   const verified = currentVaultId 
     ? allVerified.filter(entry => entry.vaultId === currentVaultId)
     : [];
   
-  // Sort by timestamp descending (newest first)
+  
   verified.sort((a, b) => b.timestamp - a.timestamp);
   
   filteredVerifiedCodes = verified;
@@ -1680,7 +1653,7 @@ function renderPagination(type, total) {
         renderUserCodes(el('user-select').value);
       } else {
         currentVerifiedPage = i;
-        // Get the username from the correct select element
+        
         const username = el('verified-user-select').value;
         if (username) {
           showVerifiedHistoryForUser(username);
@@ -1691,7 +1664,7 @@ function renderPagination(type, total) {
   }
 }
 
-// REPLACE the window.verifyCode function
+
 window.verifyCode = async function(sanitizedUsername, code) {
   const codes = db.userPulledCodes[sanitizedUsername] || [];
   const originalUsername = codes.length > 0 && codes[0].originalUsername 
@@ -1708,7 +1681,7 @@ window.verifyCode = async function(sanitizedUsername, code) {
     code, 
     timestamp: Date.now(),
     vaultId: db.currentVaultId,
-    originalUsername: originalUsername  // Store original username
+    originalUsername: originalUsername 
   });
   
   await saveVaultDB();
@@ -1736,11 +1709,11 @@ window.removeFromRankings = async function(username) {
     return;
   }
   
-  // Remove only codes from current vault
+  
   db.userVerifiedHistory[username] = (db.userVerifiedHistory[username] || [])
     .filter(entry => entry.vaultId !== currentVaultId);
   
-  // If no history left, remove the user entry entirely
+ 
   if(db.userVerifiedHistory[username].length === 0) {
     delete db.userVerifiedHistory[username];
   }
@@ -1754,7 +1727,7 @@ window.removeFromRankings = async function(username) {
   alert(`${username} has been removed from current vault rankings`);
 };
 
-// REPLACE the window.redistributeCode function
+
 window.redistributeCode = async function(sanitizedUsername, code) {
   const codes = db.userPulledCodes[sanitizedUsername] || [];
   const originalUsername = codes.length > 0 && codes[0].originalUsername 
@@ -1771,7 +1744,6 @@ window.redistributeCode = async function(sanitizedUsername, code) {
   populateUserSelect();
 };
 
-// ADD THE NEW FUNCTION HERE:
 window.redistributeVerifiedCode = async function(username, code) {
   if (!currentUser) {
     alert('Please login to redistribute codes');
@@ -1784,19 +1756,19 @@ window.redistributeVerifiedCode = async function(username, code) {
   }
   
   if (confirm(`Redistribute code "${code.split('').join(', ')}" back to unverified pool?\n\nThis will remove it from ${username}'s verified history.`)) {
-    // Remove from verified array
+    
     db.verified = db.verified.filter(c => c !== code);
     
-    // Add back to unverified
+  
     db.unverified.push(code);
     
-    // Remove from user's verified history for this vault
+   
     const currentVaultId = db.currentVaultId;
     if (db.userVerifiedHistory[username]) {
       db.userVerifiedHistory[username] = db.userVerifiedHistory[username]
         .filter(entry => !(entry.code === code && entry.vaultId === currentVaultId));
       
-      // Clean up empty histories
+     
       if (db.userVerifiedHistory[username].length === 0) {
         delete db.userVerifiedHistory[username];
       }
@@ -1805,7 +1777,7 @@ window.redistributeVerifiedCode = async function(username, code) {
     await saveVaultDB();
     addActivityLog('Redistributed Verified Code', `${username}: ${code} moved back to unverified`);
     
-    // Refresh the display
+   
     showVerifiedHistoryForUser(username);
     refreshStatus();
     updateRankings();
@@ -1813,7 +1785,7 @@ window.redistributeVerifiedCode = async function(username, code) {
   }
 };
 
-// REPLACE the el('verifyAllBtn').addEventListener section
+
 el('verifyAllBtn').addEventListener('click', async () => {
   const sanitizedUsername = el('user-select').value;
   if (!sanitizedUsername) return;
@@ -1833,7 +1805,7 @@ el('verifyAllBtn').addEventListener('click', async () => {
         code: item.code, 
         timestamp: Date.now(),
         vaultId: db.currentVaultId,
-        originalUsername: originalUsername  // Store original username
+        originalUsername: originalUsername 
       });
     });
     
@@ -1848,7 +1820,7 @@ el('verifyAllBtn').addEventListener('click', async () => {
   }
 });
 
-// REPLACE the el('redistributeAllBtn').addEventListener section
+
 el('redistributeAllBtn').addEventListener('click', async () => {
   const sanitizedUsername = el('user-select').value;
   if (!sanitizedUsername) return;
@@ -1982,7 +1954,7 @@ el('clearLogsBtn').addEventListener('click', async () => {
   }
 });
 
-// UPDATE refreshStatus to show correct counts:
+
 function refreshStatus() {
   if (!db) return;
   
@@ -1992,7 +1964,7 @@ function refreshStatus() {
     el('vault-title-display').textContent = db.proposedVault.title;
     el('vault-reward-display').textContent = db.proposedVault.reward;
     
-    // Calculate unverified dynamically
+   
     const totalCodes = db.proposedVault.totalCodes || 0;
     const pulledCount = Object.values(db.userPulledCodes).reduce((sum, codes) => sum + codes.length, 0);
     const unverifiedCount = Math.max(0, totalCodes - verified.length - pulledCount);
@@ -2044,7 +2016,7 @@ function refreshStatus() {
   populateVerifiedUserSelect();
 }
 
-// ADD this new function for editing vault reward
+
 window.editVaultReward = async function() {
   if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
     alert('Only admins can edit vault reward');
@@ -2096,12 +2068,12 @@ function refreshActiveVaultControls() {
       el('active-vault-status').style.color = 'var(--accent)';
     }
     
-    // Show/hide buttons based on role
+    
     if (currentUserRole === 'admin' || currentUserRole === 'superadmin') {
       show(el('completeVaultBtn'));
       show(el('resetVaultBtn'));
       
-      // ADD edit reward button if it doesn't exist
+     
       if (!el('editRewardBtn')) {
         const editBtn = document.createElement('button');
         editBtn.id = 'editRewardBtn';
@@ -2139,18 +2111,18 @@ function refreshVerifyTab() {
   console.log('currentUser:', currentUser);
   console.log('db.vaultConfirmations:', db.vaultConfirmations);
   
-  // Show proposed vault if it exists and hasn't been confirmed yet
+ 
   if(db.proposedVault && db.proposedBy) {
     const confirmationCount = Object.keys(db.vaultConfirmations || {}).length;
     console.log('Confirmation count:', confirmationCount);
     
-    // Show as long as less than 2 confirmations
+   
     if(confirmationCount < 2) {
       show(el('proposed-vault-section'));
       
       el('pv-proposer').innerText = db.proposedBy;
       
-      // Safely get role with fallback
+     
       const proposerRole = users[db.proposedBy] ? users[db.proposedBy].role : 'unknown';
       el('pv-proposer-role').innerText = `(${getRoleDisplayName(proposerRole)})`;
       
@@ -2168,7 +2140,7 @@ function refreshVerifyTab() {
         el('pv-confirmed-by').innerText = '';
       }
       
-      // Button states - only disable if user is logged in
+      
       if(currentUser) {
         const hasConfirmed = db.vaultConfirmations[currentUser];
         const isProposer = db.proposedBy === currentUser;
@@ -2176,7 +2148,7 @@ function refreshVerifyTab() {
         el('confirmVaultBtn').disabled = hasConfirmed || isProposer;
         el('denyVaultBtn').disabled = false;
         
-        // Add message for proposer
+       
         if(isProposer) {
           const existingMsg = el('pv-proposer-msg');
           if(!existingMsg) {
@@ -2189,12 +2161,12 @@ function refreshVerifyTab() {
             el('proposed-vault-section').appendChild(msg);
           }
         } else {
-          // Remove proposer message if it exists
+          
           const existingMsg = el('pv-proposer-msg');
           if(existingMsg) existingMsg.remove();
         }
       } else {
-        // Not logged in - disable buttons
+       
         el('confirmVaultBtn').disabled = true;
         el('denyVaultBtn').disabled = true;
       }
@@ -2207,7 +2179,7 @@ function refreshVerifyTab() {
     hide(el('proposed-vault-section'));
   }
   
-  // Handle correct code proposal section (same pattern)
+ 
   if(db.correctCodeProposal && db.correctCodeProposedBy) {
     const confirmationCount = Object.keys(db.correctCodeConfirmations || {}).length;
     
@@ -2277,7 +2249,7 @@ el('confirmCorrectCodeBtn').addEventListener('click', async () => {
     return;
   }
   
-  // Set critical save flag IMMEDIATELY before any changes
+ 
   isSavingCriticalData = true;
   
   db.correctCodeConfirmations[currentUser] = true;
@@ -2285,21 +2257,21 @@ el('confirmCorrectCodeBtn').addEventListener('click', async () => {
   const confirmationCount = Object.keys(db.correctCodeConfirmations).length;
   
   try {
-    // Save to Firebase first
+    
     await database.ref('vault').set(db);
     
-    // Wait for Firebase to process
+    
     await new Promise(resolve => setTimeout(resolve, 800));
     
-    // Add activity log
+   
     if(confirmationCount >= 2) {
       addActivityLog('Confirmed Correct Code', db.correctCodeProposal.split('').join(', '));
     }
     
-    // Wait a bit more to ensure sync won't override
+  
     await new Promise(resolve => setTimeout(resolve, 300));
     
-    // Now safe to show alert
+    
     if(confirmationCount >= 2) {
       alert('Correct code has been confirmed and will now be displayed!');
     } else {
@@ -2310,10 +2282,10 @@ el('confirmCorrectCodeBtn').addEventListener('click', async () => {
     console.error('Error confirming correct code:', error);
     alert('Error saving confirmation. Please try again.');
   } finally {
-    // Clear flag AFTER everything is done
+    
     isSavingCriticalData = false;
     
-    // Update UI after flag is cleared
+   
     refreshVerifyTab();
     refreshStatus();
     updatePublicVaultInfo();
@@ -2334,7 +2306,7 @@ el('denyCorrectCodeBtn').addEventListener('click', async () => {
   }
 });
 
-// Add event listener for "Complete Vault" button
+
 el('completeVaultBtn').addEventListener('click', async () => {
   if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
     alert('Only admins can complete vaults');
@@ -2351,7 +2323,7 @@ el('completeVaultBtn').addEventListener('click', async () => {
   if (confirm(`Mark vault "${db.proposedVault.title}" as complete (not cracked)?`)) {
     const vaultTitle = db.proposedVault.title;
     
-    // Clear vault data
+   
     db.proposedVault = null;
     db.proposedBy = null;
     db.vaultConfirmations = {};
@@ -2359,7 +2331,7 @@ el('completeVaultBtn').addEventListener('click', async () => {
     db.correctCodeProposedBy = null;
     db.correctCodeConfirmations = {};
     
-    // Keep verified codes but clear unverified and pulled codes
+   
     db.unverified = [];
     db.userPulledCodes = {};
     
@@ -2373,7 +2345,7 @@ el('completeVaultBtn').addEventListener('click', async () => {
   }
 });
 
-// Add event listener for "Reset Vault" button (for admins)
+
 el('resetVaultBtn').addEventListener('click', async () => {
   if (currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
     alert('Only admins can reset vaults');
@@ -2383,7 +2355,7 @@ el('resetVaultBtn').addEventListener('click', async () => {
   if (confirm('⚠️ RESET VAULT? This will clear everything and allow a new vault to be proposed. This action cannot be undone!')) {
     const vaultTitle = db.proposedVault ? db.proposedVault.title : 'Unknown';
     
-    // Clear ALL vault data
+   
     db.proposedVault = null;
     db.proposedBy = null;
     db.vaultConfirmations = {};
@@ -2409,7 +2381,7 @@ async function saveVaultDB() {
   try {
     isSavingCriticalData = true;
     await database.ref('vault').set(db);
-    // Wait a bit to ensure Firebase processes the write
+  
     await new Promise(resolve => setTimeout(resolve, 300));
   } catch (error) {
     console.error('Error saving to Firebase:', error);
@@ -2420,7 +2392,7 @@ async function saveVaultDB() {
 
 function setupRealtimeSync() {
   database.ref('vault').on('value', snapshot => {
-    // Don't update if we're in the middle of a critical save operation
+   
     if (isSavingCriticalData) {
       console.log('Skipping sync - critical save in progress');
       return;
@@ -2512,7 +2484,7 @@ function updateUIForAuth(showLockIfNeeded = true){
     hideLoginRequired();
     ui.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div><strong>${currentUser}</strong> <span class="small">(${getRoleDisplayName(currentUserRole)})</span></div><button class="btn ghost" id="logoutBtn2">Logout</button></div>`; 
     
-    // Add logout handler to the new button
+    
     const logoutBtn2 = el('logoutBtn2');
     if(logoutBtn2) {
       logoutBtn2.addEventListener('click', ()=>{ 
@@ -2530,7 +2502,7 @@ function updateUIForAuth(showLockIfNeeded = true){
     show(el('logoutBtn')); 
     hide(el('loginBtn'));
     
-    // Show all tabs when logged in
+
     document.querySelectorAll('.tab').forEach(tab => {
       if(tab.dataset.tab !== 'public') {
         tab.classList.remove('hidden');
@@ -2546,7 +2518,7 @@ function updateUIForAuth(showLockIfNeeded = true){
     } 
   } else {
     if(showLockIfNeeded) {
-      // Don't show login required screen, just hide tabs
+ 
       document.body.classList.remove('locked');
       const lock = el('lockMsg');
       if(lock) lock.remove();
@@ -2558,7 +2530,7 @@ function updateUIForAuth(showLockIfNeeded = true){
     show(el('loginBtn')); 
     hide(el('logoutBtn'));
     
-    // Hide all tabs except public when not logged in
+
     document.querySelectorAll('.tab').forEach(tab => {
       if(tab.dataset.tab !== 'public') {
         tab.classList.add('hidden');
@@ -2567,7 +2539,7 @@ function updateUIForAuth(showLockIfNeeded = true){
       }
     });
     
-    // Switch to public tab if on a private tab
+
     const activeTabs = document.querySelectorAll('.tab.active');
     activeTabs.forEach(tab => {
       if(tab.dataset.tab !== 'public') {
@@ -2586,11 +2558,11 @@ function updateUIForAuth(showLockIfNeeded = true){
     el('usersTab').classList.add('hidden'); 
   }
   
-  // Update public vault info
+
   updatePublicVaultInfo();
 }
     
-// REPLACE the updatePublicVaultInfo() function with this corrected version:
+
 function updatePublicVaultInfo() {
   const publicInfo = el('public-vault-info');
   const rankingsSection = el('public-rankings');
@@ -2602,7 +2574,7 @@ function updatePublicVaultInfo() {
   const correctCodeConfirmed = db.correctCodeProposal && Object.keys(db.correctCodeConfirmations || {}).length >= 2;
   
   if(vaultConfirmed) {
-    // Calculate counts dynamically from metadata
+   
     const totalCodes = db.proposedVault.totalCodes || 0;
     const verifiedCount = (db.verified || []).length;
     const pulledCount = Object.values(db.userPulledCodes || {}).reduce((sum, codes) => sum + codes.length, 0);
@@ -2650,7 +2622,7 @@ function updatePublicVaultInfo() {
     
     publicInfo.innerHTML = statusHTML;
     
-    // Show rankings
+ 
     show(rankingsSection);
     updateRankings();
   } else {
@@ -2659,12 +2631,12 @@ function updatePublicVaultInfo() {
   }
 }
 
-// REPLACE the updateRankings function
+
 function updateRankings() {
   const rankingsList = el('rankings-list');
   if(!rankingsList) return;
   
-  // Only count verified codes from the CURRENT vault
+  
   const userStats = {};
   const currentVaultId = db.currentVaultId;
   
@@ -2673,22 +2645,22 @@ function updateRankings() {
     return;
   }
   
-  // Calculate stats only for current vault
+ 
   for(let sanitizedUsername in db.userVerifiedHistory) {
     const vaultSpecificCodes = (db.userVerifiedHistory[sanitizedUsername] || [])
       .filter(entry => entry.vaultId === currentVaultId);
     
     if(vaultSpecificCodes.length > 0) {
-      // Get original username from first entry
+      
       const originalUsername = vaultSpecificCodes[0].originalUsername || unsanitizeUsername(sanitizedUsername);
       userStats[originalUsername] = vaultSpecificCodes.length;
     }
   }
   
-  // Sort by verified count
+  
   const sorted = Object.entries(userStats)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5); // Top 5
+    .slice(0, 5);
   
   if(sorted.length === 0) {
     rankingsList.innerHTML = '<p class="small" style="color:var(--muted)">No verified codes yet for this vault.</p>';
@@ -2701,7 +2673,7 @@ function updateRankings() {
     const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
     const highlight = index < 3 ? 'style="background:rgba(255,255,255,0.05);padding:8px;border-radius:6px"' : 'style="padding:8px"';
     
-    // Use sanitized username for the remove function
+    
     const sanitizedUsername = sanitizeUsername(originalUsername);
     const removeBtn = (currentUserRole === 'admin' || currentUserRole === 'superadmin') 
       ? `<button class="btn small" style="background:var(--danger);padding:4px 8px;font-size:11px;margin-left:8px" onclick="removeFromRankings('${sanitizedUsername}')">Remove</button>`
@@ -2768,7 +2740,7 @@ el('openMergeUsers').addEventListener('click', () => {
   openMergeUsersModal();
 });
 
-// Preview merge functionality
+
 el('previewMerge').addEventListener('click', () => {
   const source = el('mergeSource').value.trim().toLowerCase();
   const target = el('mergeTarget').value.trim().toLowerCase();
@@ -2793,7 +2765,7 @@ el('previewMerge').addEventListener('click', () => {
   const sanitizedSource = sanitizeUsername(source);
   const sanitizedTarget = sanitizeUsername(target);
   
-  // Count codes from both users
+
   const sourcePulled = (db.userPulledCodes[sanitizedSource] || []).length;
   const targetPulled = (db.userPulledCodes[sanitizedTarget] || []).length;
   
@@ -2805,8 +2777,7 @@ el('previewMerge').addEventListener('click', () => {
     err.textContent = `No data found for "${source}". Please check spelling.`;
     return;
   }
-  
-  // Show preview
+
   el('mergePreviewContent').innerHTML = `
     <div style="margin-bottom:8px">
       <strong style="color:var(--danger)">${source}:</strong> 
@@ -2832,7 +2803,7 @@ el('previewMerge').addEventListener('click', () => {
   show(el('confirmMerge'));
 });
 
-// Confirm merge functionality
+
 el('confirmMerge').addEventListener('click', async () => {
   const source = el('mergeSource').value.trim().toLowerCase();
   const target = el('mergeTarget').value.trim().toLowerCase();
@@ -2852,13 +2823,13 @@ el('confirmMerge').addEventListener('click', async () => {
   
   let mergedCount = 0;
   
-  // Merge pulled codes
+
   if (db.userPulledCodes[sanitizedSource]) {
     if (!db.userPulledCodes[sanitizedTarget]) {
       db.userPulledCodes[sanitizedTarget] = [];
     }
     
-    // Update originalUsername to target
+
     db.userPulledCodes[sanitizedSource].forEach(item => {
       item.originalUsername = target;
     });
@@ -2868,13 +2839,13 @@ el('confirmMerge').addEventListener('click', async () => {
     delete db.userPulledCodes[sanitizedSource];
   }
   
-  // Merge verified history
+
   if (db.userVerifiedHistory[sanitizedSource]) {
     if (!db.userVerifiedHistory[sanitizedTarget]) {
       db.userVerifiedHistory[sanitizedTarget] = [];
     }
     
-    // Update originalUsername to target
+
     db.userVerifiedHistory[sanitizedSource].forEach(item => {
       item.originalUsername = target;
     });
@@ -2895,7 +2866,7 @@ el('confirmMerge').addEventListener('click', async () => {
   updateRankings();
   updatePublicVaultInfo();
   
-  // Refresh if viewing merged user
+
   const selectedUser = el('user-select').value;
   if (selectedUser === sanitizedSource || selectedUser === sanitizedTarget) {
     el('user-select').value = sanitizedTarget;
@@ -2987,7 +2958,7 @@ function changePassword(username){
 }
 window.changePassword = changePassword;
     
-// ADD this event listener for the login functionality (around line 1200, before checkAuth function):
+
 el('confirmLogin').addEventListener('click', async () => {
   const username = el('loginUsername').value.trim();
   const password = el('loginPassword').value.trim();
@@ -3026,20 +2997,19 @@ async function checkAuth(){
   try {
     console.log('=== Starting checkAuth ===');
     
-    // Get saved session FIRST
+
     const saved = localStorage.getItem('vaultUser');
     console.log('Saved user from localStorage:', saved);
     
-    // Load users from Firebase
+
     await loadUsersFromFirebase();
     console.log('Users loaded from Firebase:', Object.keys(users));
-    
-    // Load vault data with error handling
+
     try {
       const vaultSnapshot = await database.ref('vault').once('value');
       if (vaultSnapshot.exists()) {
         const data = vaultSnapshot.val();
-        // Ensure all required properties exist with defaults
+      
         db = {
           unverified: data.unverified || [],
           verified: data.verified || [],
@@ -3056,7 +3026,7 @@ async function checkAuth(){
         };
         console.log('Vault data loaded successfully');
       } else {
-        // Initialize with empty structure
+  
         db = { 
           unverified: [], 
           verified: [], 
@@ -3075,7 +3045,7 @@ async function checkAuth(){
       }
     } catch(vaultError) {
       console.error('Error loading vault data:', vaultError);
-      // Initialize with empty structure on error
+  
       db = { 
         unverified: [], 
         verified: [], 
@@ -3092,19 +3062,18 @@ async function checkAuth(){
       };
     }
     
-    // Setup realtime sync BEFORE updating UI
+
     setupRealtimeSync();
-    
-    // Validate session
+
     if(saved && users[saved]){
       console.log('✅ Valid session found, logging in as:', saved);
       currentUser = saved;
       currentUserRole = users[saved].role;
       
-      // Update UI without showing lock
+
       updateUIForAuth(false);
       
-      // Only call these if we have valid data
+
       if(db) {
         refreshVerifyTab();
         refreshStatus();
@@ -3113,10 +3082,10 @@ async function checkAuth(){
       }
     } else {
       console.log('❌ No valid session, showing public tab');
-      // Clear invalid session
+
       if(saved) localStorage.removeItem('vaultUser');
   
-      // Don't show login required - just show public tab
+    
       updateUIForAuth(false);
     }
   } catch(error) {
@@ -3125,10 +3094,10 @@ async function checkAuth(){
   }
 }
 
-// Prevent flash of login screen - hide body until auth completes
+
 document.body.style.visibility = 'hidden';
 
-// Make sure DOM is loaded before running
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', async () => {
     await checkAuth();
@@ -3144,9 +3113,9 @@ if (document.readyState === 'loading') {
   });
 }
     
-  } // End of initApp
+  } 
   
-  // Start the initialization
+ 
   initApp();
 })();
 </script>
